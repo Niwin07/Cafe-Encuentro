@@ -4,10 +4,10 @@ import { AuthContext } from '../context/AuthContext';
 import ListaPedidosActivos from './ListaPedidosActivos';
 import ModalProducto from '../components/ModalProducto';
 import { useLocation } from 'wouter';
-import './MenuCajera.css'; // <--- IMPORTANTE
+import './MenuCajera.css';
 
 const MenuCajera = () => {
-  const { user } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [carrito, setCarrito] = useState([]);
@@ -16,6 +16,8 @@ const MenuCajera = () => {
   const [procesando, setProcesando] = useState(false);
   const [, setLocation] = useLocation();
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
+  const [busqueda, setBusqueda] = useState('');
+  const [tabActiva, setTabActiva] = useState('catalogo'); // Para móviles
 
   useEffect(() => { cargarDatos(); }, []);
 
@@ -25,7 +27,9 @@ const MenuCajera = () => {
       setProductos(res.data.menu);
       const cats = [...new Set(res.data.menu.map(p => p.categoria.nombre))];
       setCategorias(['Todas', ...cats]);
-    } catch (error) { console.error(error); }
+    } catch (error) { 
+      console.error(error); 
+    }
   };
 
   const abrirModalProducto = (producto) => {
@@ -46,6 +50,10 @@ const MenuCajera = () => {
       destino_id: itemConfigurado.destino.id
     };
     setCarrito([...carrito, itemCart]);
+    // En móvil, cambiar automáticamente a la pestaña del carrito
+    if (window.innerWidth < 1024) {
+      setTabActiva('carrito');
+    }
   };
 
   const eliminarDelCarrito = (tempId) => {
@@ -55,6 +63,7 @@ const MenuCajera = () => {
   const confirmarPedido = async () => {
     if (!cliente.trim()) return alert('⚠️ Falta nombre del cliente');
     if (carrito.length === 0) return alert('⚠️ Carrito vacío');
+    
     setProcesando(true);
     try {
       const payload = {
@@ -71,122 +80,258 @@ const MenuCajera = () => {
       setCarrito([]);
       setCliente('');
       cargarDatos();
-    } catch (error) { alert(error.message); } 
-    finally { setProcesando(false); }
+      
+      // Cambiar a pestaña de pedidos en móvil
+      if (window.innerWidth < 1024) {
+        setTabActiva('pedidos');
+      }
+    } catch (error) { 
+      alert(error.message); 
+    } finally { 
+      setProcesando(false); 
+    }
   };
 
   const total = carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
-  const productosFiltrados = categoriaSeleccionada === 'Todas' 
-    ? productos 
-    : productos.filter(p => p.categoria.nombre === categoriaSeleccionada);
+  
+  const productosFiltrados = productos.filter(p => {
+    const matchCategoria = categoriaSeleccionada === 'Todas' || p.categoria.nombre === categoriaSeleccionada;
+    const matchBusqueda = busqueda === '' || 
+      p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+      (p.descripcion && p.descripcion.toLowerCase().includes(busqueda.toLowerCase()));
+    return matchCategoria && matchBusqueda;
+  });
 
   return (
-    <div className="pos-layout">
+    <div className="pos-container">
       
-      {/* 1. CATÁLOGO */}
-      <section className="catalog-section">
-        <div className="catalog-header">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <h2 style={{ color: 'white', marginBottom: '5px' }}>Café Encuentro</h2>
-              <small>Cajera: {user?.nombre}</small>
-            </div>
-            <button onClick={() => setLocation('/admin')} className="btn btn-icon btn-secondary">⚙️</button>
+      {/* HEADER */}
+      <div className="pos-header">
+        <div className="pos-header-content">
+          <div>
+            <h2>☕ Café Encuentro</h2>
+            <p className="pos-header-user">
+              Cajera: <strong>{user?.nombre}</strong>
+            </p>
           </div>
           
-          <div className="categories-scroll">
-            {categorias.map(cat => (
-              <button 
-                key={cat} 
-                onClick={() => setCategoriaSeleccionada(cat)}
-                className={`cat-btn ${categoriaSeleccionada === cat ? 'active' : ''}`}
-              >
-                {cat}
-              </button>
-            ))}
+          <div className="pos-header-actions">
+            <button 
+              onClick={() => setLocation('/registros')} 
+              className="btn btn-icon"
+              title="Registros"
+            >
+              📊
+            </button>
+            <button 
+              onClick={() => setLocation('/admin')} 
+              className="btn btn-icon"
+              title="Administración"
+            >
+              ⚙️
+            </button>
+            <button 
+              onClick={logout} 
+              className="btn btn-icon"
+              title="Cerrar sesión"
+            >
+              🚪
+            </button>
           </div>
         </div>
+      </div>
 
-        <div className="products-grid">
-          {productosFiltrados.map(prod => (
-            <div key={prod.id} className="product-card" onClick={() => abrirModalProducto(prod)}>
-              <div>
-                <h4 style={{ fontSize: '1rem', marginBottom: '5px' }}>{prod.nombre}</h4>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', margin: 0 }}>Stock: {prod.stock}</p>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
-                <span className="product-price">${prod.precio}</span>
-                <span style={{ fontSize: '1.2rem' }}>➕</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* 2. CARRITO */}
-      <section className="cart-section">
-        <div className="cart-header">
-          <h3 style={{ marginBottom: '10px' }}>🛒 Pedido Actual</h3>
-          <input 
-            type="text" 
-            placeholder="Cliente / Mesa..." 
-            value={cliente} 
-            onChange={e => setCliente(e.target.value)}
-            autoFocus
-          />
-        </div>
-
-        <div className="cart-items-container">
-          {carrito.length === 0 ? (
-            <div style={{ textAlign: 'center', color: '#999', marginTop: '40px' }}>
-              <p>El carrito está vacío</p>
-              <span style={{ fontSize: '3rem' }}>☕</span>
-            </div>
-          ) : (
-            carrito.map(item => (
-              <div key={item.tempId} className="cart-item">
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: '600' }}>
-                    <span style={{ color: 'var(--primary)' }}>{item.cantidad}x</span> {item.nombre}
-                  </div>
-                  {item.acompanamiento_nombre && <small style={{ display: 'block', color: '#666' }}>+ {item.acompanamiento_nombre}</small>}
-                  {item.notas && <small style={{ display: 'block', color: 'orange' }}>📝 {item.notas}</small>}
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 'bold' }}>${item.precio * item.cantidad}</div>
-                  <button 
-                    onClick={() => eliminarDelCarrito(item.tempId)}
-                    style={{ color: 'red', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '0.8rem' }}
-                  >
-                    Quitar
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        <div className="cart-footer">
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '1rem' }}>
-            <span>Total</span>
-            <span>${total}</span>
-          </div>
+      {/* TABS MÓVILES */}
+      <div className="pos-tabs-mobile">
+        <div className="pos-tabs-container">
           <button 
-            onClick={confirmarPedido} 
-            disabled={procesando}
-            className="btn btn-success" 
-            style={{ width: '100%', padding: '1rem', fontSize: '1.1rem' }}
+            className={`pos-tab-btn ${tabActiva === 'catalogo' ? 'active' : ''}`}
+            onClick={() => setTabActiva('catalogo')}
           >
-            {procesando ? 'Enviando...' : 'CONFIRMAR PEDIDO'}
+            <span>🍽️</span>
+            <span>Catálogo</span>
+          </button>
+          <button 
+            className={`pos-tab-btn ${tabActiva === 'carrito' ? 'active' : ''}`}
+            onClick={() => setTabActiva('carrito')}
+          >
+            <span>🛒</span>
+            <span>Carrito</span>
+            {carrito.length > 0 && (
+              <span className="badge badge-error" style={{ marginLeft: '0.25rem' }}>
+                {carrito.length}
+              </span>
+            )}
+          </button>
+          <button 
+            className={`pos-tab-btn ${tabActiva === 'pedidos' ? 'active' : ''}`}
+            onClick={() => setTabActiva('pedidos')}
+          >
+            <span>📋</span>
+            <span>Activos</span>
           </button>
         </div>
-      </section>
+      </div>
 
-      {/* 3. HISTORIAL */}
-      <section className="history-section">
-        <ListaPedidosActivos />
-      </section>
+      {/* LAYOUT PRINCIPAL */}
+      <div className="pos-layout">
+        
+        {/* CATÁLOGO */}
+        <div className={`pos-catalogo ${tabActiva === 'catalogo' ? 'active' : ''}`}>
+          
+          <div className="pos-catalogo-filtros">
+            {/* Buscador */}
+            <div className="pos-buscador">
+              <input 
+                type="text"
+                placeholder="🔍 Buscar producto..."
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+              />
+            </div>
 
+            {/* Categorías */}
+            <div className="pos-categorias">
+              {categorias.map(cat => (
+                <button 
+                  key={cat} 
+                  onClick={() => setCategoriaSeleccionada(cat)}
+                  className={categoriaSeleccionada === cat ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Grid de Productos */}
+          <div className="pos-productos-grid">
+            {productosFiltrados.map(prod => (
+              <div 
+                key={prod.id} 
+                className={`card producto-card ${prod.stock === 0 ? 'sin-stock' : ''}`}
+                onClick={() => abrirModalProducto(prod)}
+              >
+                {/* Badge de stock bajo */}
+                {prod.stock < 5 && prod.stock > 0 && (
+                  <div className="badge badge-warning producto-badge-stock">
+                    ¡Quedan {prod.stock}!
+                  </div>
+                )}
+                
+                <div>
+                  <h4 className="producto-nombre">{prod.nombre}</h4>
+                  <p className="producto-stock">Stock: {prod.stock}</p>
+                </div>
+                
+                <div className="producto-footer">
+                  <span className="producto-precio">${prod.precio}</span>
+                  {prod.stock > 0 && (
+                    <span className="producto-icono-add">➕</span>
+                  )}
+                </div>
+              </div>
+            ))}
+            
+            {productosFiltrados.length === 0 && (
+              <div className="pos-productos-vacio">
+                <p className="pos-productos-vacio-icono">🔍</p>
+                <p>No se encontraron productos</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* CARRITO */}
+        <div className={`pos-carrito ${tabActiva === 'carrito' ? 'active' : ''}`}>
+          
+          <div className="pos-carrito-header">
+            <h3>🛒 Pedido Actual</h3>
+            <input 
+              type="text" 
+              placeholder="Nombre del cliente o mesa..."
+              value={cliente} 
+              onChange={e => setCliente(e.target.value)}
+              autoFocus={tabActiva === 'carrito'}
+            />
+          </div>
+
+          <div className="pos-carrito-items">
+            {carrito.length === 0 ? (
+              <div className="carrito-vacio">
+                <p className="carrito-vacio-icono">🛒</p>
+                <p>El carrito está vacío</p>
+                <small>Selecciona productos del catálogo</small>
+              </div>
+            ) : (
+              carrito.map(item => (
+                <div key={item.tempId} className="carrito-item animate-fade-in">
+                  <div className="carrito-item-info">
+                    <div className="carrito-item-nombre">
+                      <span className="carrito-item-cantidad">{item.cantidad}×</span> {item.nombre}
+                    </div>
+                    {item.acompanamiento_nombre && (
+                      <div className="carrito-item-acomp">+ {item.acompanamiento_nombre}</div>
+                    )}
+                    {item.notas && (
+                      <div className="carrito-item-nota">📝 {item.notas}</div>
+                    )}
+                  </div>
+                  
+                  <div className="carrito-item-acciones">
+                    <div className="carrito-item-precio">
+                      ${(item.precio * item.cantidad).toFixed(2)}
+                    </div>
+                    <button 
+                      onClick={() => eliminarDelCarrito(item.tempId)}
+                      className="btn-ghost"
+                      style={{ 
+                        color: 'var(--error)',
+                        fontSize: '0.8125rem',
+                        padding: '0.25rem 0.5rem'
+                      }}
+                    >
+                      🗑️ Quitar
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="pos-carrito-footer">
+            <div className="carrito-total">
+              <span>Total</span>
+              <span>${total.toFixed(2)}</span>
+            </div>
+            
+            <button 
+              onClick={confirmarPedido}
+              disabled={procesando || carrito.length === 0}
+              className="btn btn-lg carrito-btn-confirmar"
+            >
+              {procesando ? (
+                <>
+                  <svg className="animate-spin" style={{ width: '20px', height: '20px' }} viewBox="0 0 24 24">
+                    <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                    <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Procesando...
+                </>
+              ) : (
+                <>✅ CONFIRMAR PEDIDO ({carrito.length})</>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* PEDIDOS ACTIVOS */}
+        <div className={`pos-pedidos ${tabActiva === 'pedidos' ? 'active' : ''}`}>
+          <ListaPedidosActivos />
+        </div>
+      </div>
+
+      {/* MODAL PRODUCTO */}
       {productoSeleccionado && (
         <ModalProducto 
           producto={productoSeleccionado} 
