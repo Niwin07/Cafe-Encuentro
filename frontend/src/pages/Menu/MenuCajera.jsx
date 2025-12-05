@@ -1,8 +1,8 @@
 import { useState, useEffect, useContext } from 'react';
-import api from '../services/api';
-import { AuthContext } from '../context/AuthContext';
+import api from '../../services/api';
+import { AuthContext } from '../../context/AuthContext';
 import ListaPedidosActivos from './ListaPedidosActivos';
-import ModalProducto from '../components/ModalProducto';
+import ModalProducto from '../../components/ModalProducto';
 import { useLocation } from 'wouter';
 import './MenuCajera.css';
 
