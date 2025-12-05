@@ -1,4 +1,15 @@
 const registrosModel = require('./registros.model');
+const pool = require('../../conexion');
+
+
+// --- NUEVA FUNCIÓN HELPER ---
+const obtenerIdDestino = async (nombre) => {
+  try {
+    const [rows] = await pool.query('SELECT id FROM destinos WHERE nombre LIKE ? LIMIT 1', [`%${nombre}%`]);
+    return rows.length > 0 ? rows[0].id : (nombre === 'Cocina' ? 1 : 2);
+  } catch (error) { return 1; }
+};
+
 
 /**
  * Obtener registros de Cocina
@@ -13,7 +24,9 @@ const obtenerRegistrosCocina = async (req, res, next) => {
       estado: req.query.estado
     };
 
-    const registros = await registrosModel.obtenerPorDestino(1, filtros);
+    // MODIFICADO: Obtenemos ID dinámico
+    const destinoId = await obtenerIdDestino('Cocina');
+    const registros = await registrosModel.obtenerPorDestino(destinoId, filtros);
 
     // Agrupar por pedido
     const pedidosAgrupados = {};
@@ -72,7 +85,9 @@ const obtenerRegistrosCafeteria = async (req, res, next) => {
       estado: req.query.estado
     };
 
-    const registros = await registrosModel.obtenerPorDestino(2, filtros);
+    // MODIFICADO: Obtenemos ID dinámico
+    const destinoId = await obtenerIdDestino('Cafeteria');
+    const registros = await registrosModel.obtenerPorDestino(destinoId, filtros);
 
     // Agrupar por pedido
     const pedidosAgrupados = {};

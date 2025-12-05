@@ -223,10 +223,25 @@ const obtenerActivosPorDestino = async (req, res, next) => {
  * Obtener items de cocina activos (público)
  * GET /api/pedidos/cocina/activos
  */
+
+// --- NUEVA FUNCIÓN HELPER ---
+const obtenerIdDestinoPorNombre = async (nombre) => {
+  try {
+    const [rows] = await pool.query('SELECT id FROM destinos WHERE nombre LIKE ? LIMIT 1', [`%${nombre}%`]);
+    // Si lo encuentra usa ese ID, si no, usa los defaults (1 para Cocina, 2 para Cafetería)
+    if (rows.length > 0) return rows[0].id;
+    return nombre === 'Cocina' ? 1 : 2; 
+  } catch (error) {
+    return nombre === 'Cocina' ? 1 : 2;
+  }
+};
+
+
 const obtenerCocinaActivos = async (req, res, next) => {
   try {
-    // Destino 1 = Cocina (según tu schema inicial)
-    const items = await pedidosModel.obtenerItemsActivosPorDestino(1);
+    // MODIFICADO: Usamos el helper en lugar de un ID fijo
+    const destinoId = await obtenerIdDestinoPorNombre('Cocina');
+    const items = await pedidosModel.obtenerItemsActivosPorDestino(destinoId);
     
     // Agrupar por pedido
     const itemsAgrupados = agruparPor(items, 'pedido_id');
@@ -247,8 +262,10 @@ const obtenerCocinaActivos = async (req, res, next) => {
  */
 const obtenerCafeteriaActivos = async (req, res, next) => {
   try {
-    // Destino 2 = Cafetería
-    const items = await pedidosModel.obtenerItemsActivosPorDestino(2);
+    // MODIFICADO: Usamos el helper en lugar de un ID fijo
+    const destinoId = await obtenerIdDestinoPorNombre('Cafeteria'); // Buscamos por nombre (flexible con/sin tilde por el LIKE del helper)
+    
+    const items = await pedidosModel.obtenerItemsActivosPorDestino(destinoId);
     
     // Agrupar por pedido
     const itemsAgrupados = agruparPor(items, 'pedido_id');
