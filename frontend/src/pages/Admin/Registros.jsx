@@ -4,7 +4,7 @@ import { useLocation } from 'wouter';
 import './Registros.css';
 
 const Registros = () => {
-  const [pedidos, setPedidos] = useState([]);
+  const [datosMostrados, setDatosMostrados] = useState([]);
   
   const hoy = new Date().toISOString().split('T')[0];
   const [fechaDesde, setFechaDesde] = useState(hoy);
@@ -28,27 +28,32 @@ const Registros = () => {
   const cargarHistorial = async () => {
     setLoading(true);
     try {
-      // 1. Construir URL con el parámetro de sector
-      const sectorQuery = filtroSector !== 'GENERAL' ? `&sector=${filtroSector}` : '';
-      const url = `/pedidos?fecha_desde=${fechaDesde} 00:00:00&fecha_hasta=${fechaHasta} 23:59:59${sectorQuery}`;
+      let url;
+      let resultado = [];
+
+      // 1. ELEGIR EL ENDPOINT CORRECTO SEGÚN EL SECTOR
+      // Esto soluciona tu problema: usas la lógica del backend que ya filtra por items
+      if (filtroSector === 'COCINA') {
+        url = `/registros/cocina?fecha_desde=${fechaDesde} 00:00:00&fecha_hasta=${fechaHasta} 23:59:59`;
+      } else if (filtroSector === 'CAFETERIA') {
+        url = `/registros/cafeteria?fecha_desde=${fechaDesde} 00:00:00&fecha_hasta=${fechaHasta} 23:59:59`;
+      } else {
+        // General: Traemos todos los pedidos completos
+        url = `/pedidos?fecha_desde=${fechaDesde} 00:00:00&fecha_hasta=${fechaHasta} 23:59:59&limite=1000`;
+      }
       
       const res = await api.get(url);
-      let datos = res.data.pedidos || [];
 
-      // 2. FILTRO DE SEGURIDAD (CLIENT-SIDE)
-      // Si el backend te devuelve todo mezclado (ignora el param), lo filtramos aquí también si el registro tiene el campo 'sector'
-      if (filtroSector !== 'GENERAL') {
-        datos = datos.filter(p => {
-          // Si el registro tiene propiedad 'sector' o 'destino', la usamos. Si no, asumimos que el backend ya filtró.
-          const sectorPedido = p.sector || p.destino; 
-          return sectorPedido ? sectorPedido.toUpperCase() === filtroSector : true;
-        });
+      // Normalizar la respuesta porque tus endpoints devuelven estructuras ligeramente diferentes
+      if (filtroSector === 'GENERAL') {
+        resultado = res.data.pedidos || [];
+      } else {
+        // Los endpoints de registros devuelven { registros: [...] }
+        resultado = res.data.registros || [];
       }
 
-      setPedidos(datos);
-      
-      // 3. CÁLCULO DE TOTALES (Lógica corregida)
-      calcularTotales(datos);
+      setDatosMostrados(resultado);
+      calcularTotales(resultado, filtroSector);
 
     } catch (error) {
       console.error(error);
@@ -58,18 +63,30 @@ const Registros = () => {
     }
   };
 
-  const calcularTotales = (listaPedidos) => {
-    // Filtramos los que NO son cancelados para la suma
-    const pedidosValidos = listaPedidos.filter(p => {
-      if (!p.estado_general) return true; // Si no tiene estado, lo contamos por seguridad
+  const calcularTotales = (lista, sector) => {
+    // Filtramos los que NO son cancelados
+    const pedidosValidos = lista.filter(p => {
+      if (!p.estado_general) return true;
       const estado = p.estado_general.toUpperCase().trim();
-      return estado !== 'CANCELADO' && estado !== 'ANULADO' && estado !== 'ELIMINADO';
+      return estado !== 'CANCELADO' && estado !== 'ANULADO';
     });
 
-    // Sumamos con cuidado de convertir strings a números
-    const totalDinero = pedidosValidos.reduce((acc, p) => {
-      return acc + (parseFloat(p.total) || 0);
-    }, 0);
+    let totalDinero = 0;
+
+    // 2. CALCULAR DINERO CORRECTAMENTE
+    if (sector === 'GENERAL') {
+      // En general, sumamos el total de la cabecera del pedido
+      totalDinero = pedidosValidos.reduce((acc, p) => acc + (parseFloat(p.total) || 0), 0);
+    } else {
+      // En sectores, sumamos SOLO los items que corresponden a ese sector
+      // Tu backend de registros agrupa los items en p.items
+      pedidosValidos.forEach(p => {
+        if (p.items && Array.isArray(p.items)) {
+          const subtotalSector = p.items.reduce((sum, item) => sum + (parseFloat(item.subtotal) || 0), 0);
+          totalDinero += subtotalSector;
+        }
+      });
+    }
 
     setTotales({ 
       total: totalDinero, 
@@ -77,10 +94,17 @@ const Registros = () => {
     });
   };
 
-  const abrirDetalle = async (id) => {
+  const abrirDetalle = async (pedido) => {
+    // Si estamos en vista sectorizada, ya tenemos los items, no hace falta llamar a la API
+    if (filtroSector !== 'GENERAL' && pedido.items) {
+      setPedidoSeleccionado(pedido);
+      return;
+    }
+
+    // Si es vista general, necesitamos cargar los detalles
     setCargandoDetalle(true);
     try {
-      const res = await api.get(`/pedidos/${id}`);
+      const res = await api.get(`/pedidos/${pedido.pedido_id || pedido.id}`);
       setPedidoSeleccionado(res.data);
     } catch (error) {
       alert('Error cargando detalles');
@@ -91,22 +115,28 @@ const Registros = () => {
 
   const eliminarPedido = async (id) => {
     if (!window.confirm('⚠️ ¿Estás segura de eliminar este registro? Afectará la caja.')) return;
-
     try {
       await api.delete(`/pedidos/${id}`);
-      // Recargamos para que se actualicen los totales
       cargarHistorial(); 
     } catch (error) {
-      console.error(error);
       alert('Error al eliminar');
     }
   };
 
-  // Helper para verificar si un pedido está cancelado visualmente
   const esCancelado = (estado) => {
     if (!estado) return false;
-    const est = estado.toUpperCase().trim();
-    return est === 'CANCELADO' || est === 'ANULADO';
+    return estado.toUpperCase() === 'CANCELADO';
+  };
+
+  // Helper para mostrar el total correcto en la tabla
+  const obtenerTotalFila = (p) => {
+    if (filtroSector === 'GENERAL') return p.total;
+    
+    // Si es sectorizado, sumamos solo los items visibles
+    if (p.items) {
+      return p.items.reduce((sum, item) => sum + (parseFloat(item.subtotal) || 0), 0).toFixed(2);
+    }
+    return 0;
   };
 
   return (
@@ -154,11 +184,13 @@ const Registros = () => {
       {/* RESUMEN (TOTALES) */}
       <div className="registros-resumen animate-fade-in">
         <div className="registros-stat">
-          <div className="registros-stat-label">Cantidad (Válidos)</div>
+          <div className="registros-stat-label">Tickets {filtroSector !== 'GENERAL' ? 'con items' : ''}</div>
           <div className="registros-stat-value">{totales.cantidad}</div>
         </div>
         <div className="registros-stat">
-          <div className="registros-stat-label">Total Recaudado</div>
+          <div className="registros-stat-label">
+            {filtroSector === 'GENERAL' ? 'Facturación Total' : `Ventas ${filtroSector}`}
+          </div>
           <div className="registros-stat-value dinero">
             ${new Intl.NumberFormat('es-AR').format(totales.total)}
           </div>
@@ -180,12 +212,15 @@ const Registros = () => {
                 <th>Cliente</th>
                 <th>Cajera</th>
                 <th style={{ textAlign: 'center' }}>Estado</th>
-                <th style={{ textAlign: 'right' }}>Total</th>
+                {/* Cambiamos el título de la columna según el filtro */}
+                <th style={{ textAlign: 'right' }}>
+                    {filtroSector === 'GENERAL' ? 'Total Ticket' : 'Subtotal Sector'}
+                </th>
                 <th style={{ textAlign: 'center' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {pedidos.length === 0 ? (
+              {datosMostrados.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="registros-vacio">
                     <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📭</div>
@@ -193,10 +228,12 @@ const Registros = () => {
                   </td>
                 </tr>
               ) : (
-                pedidos.map(p => {
+                datosMostrados.map(p => {
+                  const id = p.id || p.pedido_id; // Normalización de ID
                   const cancelado = esCancelado(p.estado_general);
+                  
                   return (
-                    <tr key={p.id} className={cancelado ? 'registro-cancelado' : ''}>
+                    <tr key={id} className={cancelado ? 'registro-cancelado' : ''}>
                       <td>
                         <div className="registros-fecha-hora">
                           <span className="registros-fecha">
@@ -224,14 +261,16 @@ const Registros = () => {
                       
                       <td style={{ textAlign: 'right' }}>
                         <span className="registros-total" style={{ textDecoration: cancelado ? 'line-through' : 'none', opacity: cancelado ? 0.5 : 1 }}>
-                          ${p.total}
+                          ${obtenerTotalFila(p)}
                         </span>
                       </td>
                       
                       <td>
                         <div className="registros-acciones">
-                          <button onClick={() => abrirDetalle(p.id)} className="registros-btn-accion registros-btn-ver">👁️</button>
-                          <button onClick={() => eliminarPedido(p.id)} className="registros-btn-accion registros-btn-eliminar">🗑️</button>
+                          <button onClick={() => abrirDetalle(p)} className="registros-btn-accion registros-btn-ver">👁️</button>
+                          {filtroSector === 'GENERAL' && (
+                             <button onClick={() => eliminarPedido(id)} className="registros-btn-accion registros-btn-eliminar">🗑️</button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -243,24 +282,59 @@ const Registros = () => {
         </div>
       )}
 
-      {/* MODAL DETALLE (Igual que antes, solo lo mantengo para contexto) */}
+      {/* MODAL DETALLE */}
       {pedidoSeleccionado && (
         <div className="registros-modal-overlay" onClick={() => setPedidoSeleccionado(null)}>
           <div className="registros-modal" onClick={(e) => e.stopPropagation()}>
             <div className="registros-modal-header">
-              <h3 className="registros-modal-title">Ticket #{pedidoSeleccionado.id.slice(-6)}</h3>
+              <h3 className="registros-modal-title">
+                Ticket #{(pedidoSeleccionado.id || pedidoSeleccionado.pedido_id).toString().slice(-6)}
+              </h3>
               <button onClick={() => setPedidoSeleccionado(null)} className="registros-modal-close">×</button>
             </div>
+            
+            <div className="registros-modal-info">
+                <div className="registros-modal-info-item">
+                    <span className="registros-modal-info-label">Cliente:</span>
+                    <span className="registros-modal-info-value">{pedidoSeleccionado.cliente}</span>
+                </div>
+                {pedidoSeleccionado.notas && (
+                    <div className="registros-modal-info-item">
+                        <span className="registros-modal-info-label">Notas Gral:</span>
+                        <span className="registros-modal-info-value" style={{ fontStyle: 'italic' }}>{pedidoSeleccionado.notas}</span>
+                    </div>
+                )}
+            </div>
+
             <div className="registros-modal-items">
-              {pedidoSeleccionado.items?.map(item => (
-                <div key={item.id} className="registros-modal-item">
+              <div className="registros-modal-items-title">
+                {filtroSector === 'GENERAL' ? 'Todos los items' : `Items de ${filtroSector}`}
+              </div>
+              
+              {pedidoSeleccionado.items?.map((item, idx) => (
+                <div key={item.id || idx} className="registros-modal-item">
                   <div className="registros-modal-item-info">
-                    {item.cantidad} x {item.producto_nombre}
+                    <div className="registros-modal-item-nombre">
+                        <span className="registros-modal-item-cantidad">{item.cantidad} x </span> 
+                        {item.producto_nombre}
+                    </div>
+                    {item.acompanamiento_nombre && (
+                        <div className="registros-modal-item-extra">+ {item.acompanamiento_nombre}</div>
+                    )}
+                    {item.instrucciones_especiales && (
+                        <div className="registros-modal-item-nota">📝 {item.instrucciones_especiales}</div>
+                    )}
                   </div>
                   <div className="registros-modal-item-subtotal">${item.subtotal}</div>
                 </div>
               ))}
-              <div className="registros-modal-total">Total: ${pedidoSeleccionado.total}</div>
+              
+              <div className="registros-modal-total">
+                {filtroSector === 'GENERAL' 
+                    ? `Total Ticket: $${pedidoSeleccionado.total}`
+                    : `Total Sector: $${obtenerTotalFila(pedidoSeleccionado)}`
+                }
+              </div>
             </div>
           </div>
         </div>
