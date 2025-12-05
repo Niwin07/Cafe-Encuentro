@@ -38,7 +38,7 @@ const login = async (req, res, next) => {
     }
 
     // Verificar contraseña
-    const passwordValido = await bcrypt.compare(password, cajera.password_hash);
+    const passwordValido = password === cajera.password_hash;
 
     if (!passwordValido) {
       return res.status(401).json({
