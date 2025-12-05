@@ -6,7 +6,16 @@ const obtenerTodos = async () => {
   return rows;
 };
 
-const crear = async (nombre, categoria) => { /* ... igual ... */ };
+const crear = async (nombre, categoria) => {
+  const query = `
+    INSERT INTO acompanamientos (nombre, categoria, activo)
+    VALUES (?, ?, 1)
+  `;
+
+  const [result] = await pool.query(query, [nombre, categoria]);
+  return result.insertId;
+};
+
 
 // ... imports ...
 

@@ -6,7 +6,16 @@ const obtenerTodos = async () => {
   return rows;
 };
 
-const crear = async (nombre, descripcion) => { /* ... igual ... */ };
+const crear = async (nombre, descripcion) => {
+  const query = `
+    INSERT INTO destinos (nombre, descripcion, activo)
+    VALUES (?, ?, 1)
+  `;
+
+  const [result] = await pool.query(query, [nombre, descripcion]);
+  return result.insertId;
+};
+
 
 // 2. AGREGAR ESTO (Actualizar para poder reactivar)
 const actualizar = async (id, datos) => {
