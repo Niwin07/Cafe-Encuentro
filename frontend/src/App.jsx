@@ -6,6 +6,7 @@ import VistaCocina from './pages/VistaCocina';
 import VistaCafeteria from './pages/VistaCafeteria';
 import VistaMozos from './pages/VistaMozos'; // <--- IMPORTAR
 import AdminPanel from './pages/AdminPanel';
+import Registros from './pages/Registros';
 
 import './App.css';
 
@@ -19,6 +20,7 @@ function App() {
           {/* Vistas Públicas de Trabajo */}
           <Route path="/cocina" component={VistaCocina} />
           <Route path="/cafeteria" component={VistaCafeteria} />
+          <Route path="/registros" component={Registros} />
           <Route path="/mozos" component={VistaMozos} /> {/* <--- NUEVA RUTA */}
 
           {/* Vista Privada */}

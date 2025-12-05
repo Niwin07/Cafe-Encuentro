@@ -25,7 +25,7 @@ const VistaCafeteria = () => {
 
   // Función para cambiar estado (De Pendiente -> En Preparación -> Listo -> Entregado)
   const avanzarEstado = async (itemId, estadoActual) => {
-    const flujo = ['Pendiente', 'En Preparación', 'Listo', 'Entregado'];
+    const flujo = ['Pendiente', 'En Preparación', 'Listo'];
     const idx = flujo.indexOf(estadoActual);
     
     if (idx < flujo.length - 1) {

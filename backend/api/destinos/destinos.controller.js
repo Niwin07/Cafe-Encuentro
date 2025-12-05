@@ -19,12 +19,32 @@ const crear = async (req, res, next) => {
   }
 };
 
+// AGREGAR ESTA FUNCIÓN DE ACTUALIZAR
+const actualizar = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    await destinosModel.actualizar(id, req.body);
+    res.json({ mensaje: 'Actualizado correctamente' });
+  } catch (error) { next(error); }
+};
+
 const eliminar = async (req, res, next) => {
   try {
-    await destinosModel.eliminar(req.params.id);
-    res.json({ mensaje: 'Destino eliminado' });
-  } catch (error) { next(error); }
+    const { id } = req.params;
+    
+    // Si mandamos ?fisico=true en la URL, borra de verdad
+    if (req.query.fisico === 'true') {
+      await destinosModel.eliminarPermanente(id);
+      return res.json({ mensaje: 'Destino eliminado DEFINITIVAMENTE' });
+    }
+
+    // Si no, borrado lógico (soft)
+    await destinosModel.eliminar(id);
+    res.json({ mensaje: 'Destino desactivado' });
+  } catch (error) {
+    next(error);
+  }
 };
 // Agrégala al export
 
-module.exports = { obtenerTodos, crear, eliminar };
+module.exports = { obtenerTodos, crear, actualizar, eliminar };

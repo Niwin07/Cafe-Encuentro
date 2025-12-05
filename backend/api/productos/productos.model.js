@@ -315,5 +315,6 @@ module.exports = {
   eliminarPermanente,
   asignarAcompanamientos,
   existe,
-  obtenerConStockBajo
+  obtenerConStockBajo,
+  eliminarPermanente
 };

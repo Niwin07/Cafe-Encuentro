@@ -383,6 +383,18 @@ const actualizarTotal = async (pedidoId, nuevoTotal) => {
   return result.affectedRows > 0;
 };
 
+const eliminar = async (pedidoId) => {
+  // Primero eliminamos los items asociados
+  const queryItems = `DELETE FROM pedidos_items WHERE pedido_id = ?`;
+  await pool.query(queryItems, [pedidoId]);
+
+  // Luego eliminamos la cabecera del pedido
+  const queryPedido = `DELETE FROM pedidos WHERE id = ?`;
+  const [result] = await pool.query(queryPedido, [pedidoId]);
+  
+  return result.affectedRows > 0;
+};
+
 module.exports = {
   crear,
   crearItem,
@@ -397,5 +409,6 @@ module.exports = {
   obtenerItemPorId,
   existe,
   contarTodos,
-  actualizarTotal
+  actualizarTotal,
+  eliminar
 };

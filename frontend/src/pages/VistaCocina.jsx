@@ -63,12 +63,21 @@ const VistaCocina = () => {
               overflow: 'hidden' 
             }}>
               {/* Encabezado del Ticket */}
-              <div style={{ backgroundColor: '#333', padding: '10px', display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontWeight: 'bold' }}>#{pedidoId.slice(-6)}</span>
-                <span style={{ color: '#ffd700' }}>{items[0].cliente}</span>
-                <span style={{ fontSize: '0.8em', color: '#aaa' }}>
-                  {new Date(items[0].created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                </span>
+              <div style={{ backgroundColor: '#333', padding: '10px', display: 'flex', justifyContent: 'space-between', flexDirection: 'column' }}> {/* Agregue flexDirection column para ordenar mejor */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                  <span style={{ fontWeight: 'bold' }}>#{pedidoId.slice(-6)}</span>
+                  <span style={{ fontSize: '0.8em', color: '#aaa' }}>
+                    {new Date(items[0].created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  </span>
+                </div>
+                
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#ffd700', fontSize: '1.1em' }}>{items[0].cliente}</span>
+                  {/* MOSTRAR CAJERA AQUÍ */}
+                  <span style={{ fontSize: '0.75em', background: '#444', padding: '2px 6px', borderRadius: '4px', color: '#ddd' }}>
+                    👤 {items[0].cajera_nombre}
+                  </span>
+                </div>
               </div>
 
               {/* Lista de Items */}

@@ -3,6 +3,7 @@ import api from '../services/api';
 import { useLocation } from 'wouter';
 
 const AdminPanel = () => {
+  // Ahora incluimos 'cajeras' en las pestañas
   const [activeTab, setActiveTab] = useState('productos');
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -12,7 +13,7 @@ const AdminPanel = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   
-  // Datos auxiliares
+  // Datos auxiliares (para selects de productos)
   const [auxCats, setAuxCats] = useState([]);
   const [auxDest, setAuxDest] = useState([]);
   const [auxAcomp, setAuxAcomp] = useState([]);
@@ -22,7 +23,7 @@ const AdminPanel = () => {
   const [nuevoAcompCategoria, setNuevoAcompCategoria] = useState('Bebida');
   const [creandoAcomp, setCreandoAcomp] = useState(false);
 
-  // Filtro de búsqueda en la lista de acompañamientos
+  // Filtro de búsqueda en la lista de acompañamientos (dentro del modal de productos)
   const [filtroAcomp, setFiltroAcomp] = useState('');
 
   useEffect(() => {
@@ -33,17 +34,27 @@ const AdminPanel = () => {
     setLoading(true);
     try {
       let url = '';
-      if (activeTab === 'productos') url = '/productos'; // Traer todos (activos e inactivos)
-      else url = `/${activeTab}`;
+      if (activeTab === 'productos') {
+        url = '/productos'; 
+      } else if (activeTab === 'cajeras') {
+        url = '/auth/cajeras'; // Endpoint especial para cajeras
+      } else {
+        url = `/${activeTab}`;
+      }
       
       const res = await api.get(url);
       
-      if (activeTab === 'productos') setData(res.data.productos || []);
-      else setData(res.data || []);
+      if (activeTab === 'productos') {
+        setData(res.data.productos || []);
+      } else if (activeTab === 'cajeras') {
+        setData(res.data.cajeras || []);
+      } else {
+        setData(res.data || []);
+      }
 
     } catch (error) {
       console.error(error);
-      alert('Error cargando datos');
+      alert('Error cargando datos: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -64,7 +75,7 @@ const AdminPanel = () => {
     }
   };
 
-  // Función para crear acompañamiento "al vuelo"
+  // Función para crear acompañamiento "al vuelo" desde el formulario de productos
   const handleQuickCreateAcomp = async (e) => {
     e.preventDefault();
     if (!nuevoAcompNombre.trim()) return;
@@ -82,7 +93,6 @@ const AdminPanel = () => {
       setAuxAcomp([...auxAcomp, nuevoItem]);
 
       // 3. Marcarlo como seleccionado en el producto actual
-      // (Truco: modificamos el editingItem para que React renderice el checkbox marcado)
       if (editingItem) {
         const actuales = editingItem.acompanamientos || [];
         setEditingItem({
@@ -90,7 +100,6 @@ const AdminPanel = () => {
           acompanamientos: [...actuales, nuevoItem]
         });
       } else {
-        // Si estamos creando un producto nuevo, necesitamos inicializar el array
         setEditingItem({
           acompanamientos: [nuevoItem]
         });
@@ -111,10 +120,9 @@ const AdminPanel = () => {
     const formData = new FormData(form);
     
     const payload = {};
-    const acompIds = []; // Array separado para los IDs
+    const acompIds = [];
 
-    // Procesar FormData manualmente para capturar los checkboxes múltiples
-    // (FormData.entries() devuelve pares clave/valor, si hay varios con misma clave, aparecen varias veces)
+    // Procesar FormData
     for (const [key, value] of formData.entries()) {
         if (key === 'acompanamientos') {
             acompIds.push(parseInt(value));
@@ -123,15 +131,24 @@ const AdminPanel = () => {
         }
     }
     
-    // Agregar el array de IDs al payload final
-    payload.acompanamientos_ids = acompIds;
+    // Solo agregar IDs de acompañamientos si estamos en productos
+    if (activeTab === 'productos') {
+        payload.acompanamientos_ids = acompIds;
+    }
 
     try {
-      if (editingItem && editingItem.id) {
-        await api.put(`/${activeTab}/${editingItem.id}`, payload);
+      if (activeTab === 'cajeras') {
+        // Las cajeras tienen un endpoint específico de registro
+        await api.post('/auth/registro', payload);
       } else {
-        await api.post(`/${activeTab}`, payload);
+        // Lógica estándar para el resto
+        if (editingItem && editingItem.id) {
+          await api.put(`/${activeTab}/${editingItem.id}`, payload);
+        } else {
+          await api.post(`/${activeTab}`, payload);
+        }
       }
+      
       alert('✅ Guardado correctamente');
       setShowModal(false);
       cargarDatos();
@@ -141,7 +158,13 @@ const AdminPanel = () => {
   };
 
   const handleDelete = async (id) => {
+    if (activeTab === 'cajeras') {
+        alert("⚠️ Por seguridad, no se pueden eliminar cajeras desde aquí. Contacte al soporte para desactivarlas en la base de datos.");
+        return;
+    }
+
     if (!confirm('¿Seguro de eliminar este elemento?')) return;
+    
     try {
       await api.delete(`/${activeTab}/${id}`);
       cargarDatos();
@@ -151,6 +174,12 @@ const AdminPanel = () => {
   };
 
   const openModal = async (item = null) => {
+    // Bloquear edición de cajeras (solo creación permitida por seguridad/complejidad de passwords)
+    if (activeTab === 'cajeras' && item) {
+        alert("⚠️ La edición de usuarios no está disponible en este panel. Solo puede crear nuevos.");
+        return;
+    }
+
     if (activeTab === 'productos') await cargarAuxiliares();
     setEditingItem(item || {}); // Inicializar vacío si es nuevo
     setShowModal(true);
@@ -165,9 +194,9 @@ const AdminPanel = () => {
         <button onClick={() => setLocation('/pedidos')} className="btn" style={{ background: 'rgba(255,255,255,0.2)' }}>⬅️ Volver a Caja</button>
       </div>
 
-      {/* TABS */}
-      <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid #ccc', padding: '0 20px', gap: '10px' }}>
-        {['productos', 'categorias', 'acompanamientos', 'destinos'].map(tab => (
+      {/* TABS DE NAVEGACIÓN */}
+      <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid #ccc', padding: '0 20px', gap: '10px', overflowX: 'auto' }}>
+        {['productos', 'categorias', 'acompanamientos', 'destinos', 'cajeras'].map(tab => (
           <button 
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -176,19 +205,20 @@ const AdminPanel = () => {
               borderBottom: activeTab === tab ? '3px solid #8b5a3c' : '3px solid transparent',
               fontWeight: activeTab === tab ? 'bold' : 'normal',
               cursor: 'pointer', textTransform: 'capitalize',
-              color: activeTab === tab ? '#8b5a3c' : '#666'
+              color: activeTab === tab ? '#8b5a3c' : '#666',
+              whiteSpace: 'nowrap'
             }}
           >
-            {tab}
+            {tab === 'cajeras' ? '👥 Cajeras' : tab}
           </button>
         ))}
       </div>
 
-      {/* LISTADO */}
+      {/* LISTADO DE DATOS */}
       <div style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
           <h3>Gestionar {activeTab}</h3>
-          <button onClick={() => openModal()} className="btn btn-success">➕ Nuevo {activeTab.slice(0,-1)}</button>
+          <button onClick={() => openModal()} className="btn btn-success">➕ Nuevo</button>
         </div>
 
         {loading ? <p>Cargando...</p> : (
@@ -196,9 +226,19 @@ const AdminPanel = () => {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead style={{ background: '#f5f5f5', borderBottom: '1px solid #ddd' }}>
                 <tr>
-                  <th style={{ padding: '12px', textAlign: 'left' }}>Nombre</th>
-                  {activeTab === 'productos' && <th style={{ padding: '12px', textAlign: 'left' }}>Info</th>}
-                  {activeTab === 'productos' && <th style={{ padding: '12px', textAlign: 'left' }}>Categoría</th>}
+                  <th style={{ padding: '12px', textAlign: 'left' }}>Nombre / Info</th>
+                  
+                  {activeTab === 'productos' && (
+                    <>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Precio / Stock</th>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Categoría</th>
+                    </>
+                  )}
+                  
+                  {activeTab === 'cajeras' && (
+                    <th style={{ padding: '12px', textAlign: 'left' }}>Usuario</th>
+                  )}
+
                   <th style={{ padding: '12px', textAlign: 'right' }}>Acciones</th>
                 </tr>
               </thead>
@@ -220,9 +260,20 @@ const AdminPanel = () => {
                       </>
                     )}
 
+                    {activeTab === 'cajeras' && (
+                        <td style={{ padding: '12px', color: '#555' }}>@{item.usuario}</td>
+                    )}
+
                     <td style={{ padding: '12px', textAlign: 'right' }}>
-                      <button onClick={() => openModal(item)} className="btn" style={{ background: '#ffbb33', marginRight: '5px', padding: '5px 10px' }}>✏️</button>
-                      <button onClick={() => handleDelete(item.id)} className="btn btn-danger" style={{ padding: '5px 10px' }}>🗑️</button>
+                      {/* Botón de editar (deshabilitado para cajeras) */}
+                      {activeTab !== 'cajeras' && (
+                        <button onClick={() => openModal(item)} className="btn" style={{ background: '#ffbb33', marginRight: '5px', padding: '5px 10px' }}>✏️</button>
+                      )}
+                      
+                      {/* Botón de eliminar (deshabilitado para cajeras por UI, aunque la función lo bloquea igual) */}
+                      {activeTab !== 'cajeras' && (
+                        <button onClick={() => handleDelete(item.id)} className="btn btn-danger" style={{ padding: '5px 10px' }}>🗑️</button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -236,23 +287,38 @@ const AdminPanel = () => {
       {showModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: 'white', padding: '25px', borderRadius: '12px', width: '95%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <h3 style={{marginTop:0}}>{editingItem.id ? 'Editar' : 'Crear'} {activeTab.slice(0, -1)}</h3>
+            <h3 style={{marginTop:0}}>{editingItem.id ? 'Editar' : 'Crear'} {activeTab === 'cajeras' ? 'Cajera' : activeTab.slice(0, -1)}</h3>
             
             <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               
               <div>
                 <label style={{fontWeight:'bold'}}>Nombre</label>
-                <input name="nombre" defaultValue={editingItem?.nombre} required />
+                <input name="nombre" defaultValue={editingItem?.nombre} required placeholder="Nombre visible" />
               </div>
 
-              {activeTab !== 'acompanamientos' && (
+              {/* === CAMPOS PARA CAJERAS === */}
+              {activeTab === 'cajeras' && (
+                <>
+                  <div>
+                    <label style={{fontWeight:'bold'}}>Usuario (Login)</label>
+                    <input name="usuario" required placeholder="Ej: cajera1" />
+                  </div>
+                  <div>
+                    <label style={{fontWeight:'bold'}}>Contraseña</label>
+                    <input name="password" type="password" required minLength="6" placeholder="Mínimo 6 caracteres" />
+                  </div>
+                </>
+              )}
+
+              {/* === CAMPOS PARA OTROS (NO CAJERAS) === */}
+              {activeTab !== 'cajeras' && activeTab !== 'acompanamientos' && (
                 <div>
                   <label>Descripción / Ingredientes</label>
                   <textarea name="descripcion" defaultValue={editingItem?.descripcion} rows="2" style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }} />
                 </div>
               )}
 
-              {/* === FORMULARIO DE PRODUCTOS === */}
+              {/* === CAMPOS ESPECÍFICOS DE PRODUCTOS === */}
               {activeTab === 'productos' && (
                 <>
                   <div style={{ display: 'flex', gap: '10px' }}>
@@ -325,7 +391,7 @@ const AdminPanel = () => {
                       {auxAcomp
                         .filter(ac => ac.nombre.toLowerCase().includes(filtroAcomp.toLowerCase()))
                         .map(ac => {
-                          // Chequeo inteligente: ¿Está en el producto original? O ¿Lo acabamos de crear en el formulario?
+                          // Chequeo inteligente: ¿Está en el producto original? O ¿Lo acabamos de crear?
                           const isChecked = editingItem?.acompanamientos?.some(a => a.id === ac.id);
                           
                           return (
@@ -345,7 +411,7 @@ const AdminPanel = () => {
                 </>
               )}
 
-              {/* CAMPOS ESPECÍFICOS DE CATEGORÍAS/ACOMPAÑAMIENTOS/DESTINOS */}
+              {/* CAMPOS ESPECÍFICOS DE ACOMPAÑAMIENTOS */}
               {activeTab === 'acompanamientos' && (
                 <div>
                   <label>Tipo (Categoría)</label>

@@ -49,4 +49,10 @@ router.patch(
   pedidosController.cancelar
 );
 
+router.delete(
+  '/:id',
+  verificarToken,
+  pedidosController.eliminar
+);
+
 module.exports = router;

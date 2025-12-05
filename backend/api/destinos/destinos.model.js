@@ -1,23 +1,27 @@
 const pool = require('../../conexion');
 
+// 1. CAMBIAR ESTO (Quitamos "WHERE activo = 1")
 const obtenerTodos = async () => {
-  const [rows] = await pool.query('SELECT * FROM destinos WHERE activo = 1');
+  const [rows] = await pool.query('SELECT * FROM destinos'); // <--- Trae todo
   return rows;
 };
 
-const crear = async (nombre, descripcion) => {
-  const [result] = await pool.query(
-    'INSERT INTO destinos (nombre, descripcion) VALUES (?, ?)',
-    [nombre, descripcion]
-  );
-  return result.insertId;
-};
+const crear = async (nombre, descripcion) => { /* ... igual ... */ };
 
-const eliminar = async (id) => {
-  // Soft delete: Lo desactivamos en lugar de borrarlo físico
-  const [result] = await pool.query('UPDATE destinos SET activo = 0 WHERE id = ?', [id]);
+// 2. AGREGAR ESTO (Actualizar para poder reactivar)
+const actualizar = async (id, datos) => {
+  const campos = Object.keys(datos).map(key => `${key} = ?`).join(', ');
+  const valores = [...Object.values(datos), id];
+  const [result] = await pool.query(`UPDATE destinos SET ${campos} WHERE id = ?`, valores);
   return result.affectedRows > 0;
 };
-// Recuerda agregar 'eliminar' al module.exports = { ..., eliminar }
 
-module.exports = { obtenerTodos, crear, eliminar };
+const eliminar = async (id) => { /* ... igual (soft delete) ... */ };
+
+// 3. AGREGAR ESTO (Borrado real)
+const eliminarPermanente = async (id) => {
+  const [result] = await pool.query('DELETE FROM destinos WHERE id = ?', [id]);
+  return result.affectedRows > 0;
+};
+
+module.exports = { obtenerTodos, crear, actualizar, eliminar, eliminarPermanente };

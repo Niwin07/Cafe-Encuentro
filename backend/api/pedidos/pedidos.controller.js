@@ -430,6 +430,67 @@ const cancelar = async (req, res, next) => {
   }
 };
 
+const eliminar = async (req, res, next) => {
+  const connection = await pool.getConnection();
+
+  try {
+    const { id } = req.params;
+
+    await connection.beginTransaction();
+
+    // 1. Obtener datos del pedido antes de borrarlo (para saber qué hacer con el stock)
+    const pedido = await pedidosModel.obtenerPorId(id);
+
+    if (!pedido) {
+      await connection.rollback();
+      return res.status(404).json({
+        error: 'Pedido no encontrado',
+        mensaje: MENSAJES_ERROR.PEDIDO_NO_ENCONTRADO
+      });
+    }
+
+    // 2. Devolver stock si corresponde
+    // Si el pedido NO estaba cancelado, significa que los items descontaron stock.
+    // Hay que devolverlo antes de borrar el registro para no perder inventario.
+    if (pedido.estado_general !== 'Cancelado') {
+      const items = pedido.items;
+      
+      for (const item of items) {
+        // Solo devolvemos stock si el item no estaba ya cancelado individualmente
+        if (item.estado !== 'Cancelado') {
+          await connection.query(
+            'UPDATE productos SET stock = stock + ? WHERE id = ?',
+            [item.cantidad, item.producto_id]
+          );
+        }
+      }
+    }
+
+    // 3. Ejecutar el borrado físico (usando la conexión de la transacción para seguridad)
+    // Nota: Como pedidosModel.eliminar usa 'pool' directo, aquí lo hacemos manual 
+    // dentro de la transacción para asegurar atomicidad.
+    
+    // Borrar items
+    await connection.query('DELETE FROM pedidos_items WHERE pedido_id = ?', [id]);
+    
+    // Borrar cabecera
+    await connection.query('DELETE FROM pedidos WHERE id = ?', [id]);
+
+    await connection.commit();
+
+    res.json({
+      mensaje: 'Registro eliminado permanentemente y stock ajustado.',
+      id_eliminado: id
+    });
+
+  } catch (error) {
+    await connection.rollback();
+    next(error);
+  } finally {
+    connection.release();
+  }
+};
+
 module.exports = {
   crear,
   obtenerTodos,
@@ -439,5 +500,6 @@ module.exports = {
   obtenerCafeteriaActivos,
   cambiarEstadoItem,
   marcarEntregado,
-  cancelar
+  cancelar,
+  eliminar
 };
