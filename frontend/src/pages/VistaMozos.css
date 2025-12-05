@@ -1,0 +1,139 @@
+/* frontend/src/pages/VistaMozos.css */
+
+/* Variables locales para este componente */
+.mozos-container {
+  --primary-mozo: #8b5a3c;
+  --bg-input-mozo: #ffffff;
+  --text-main-mozo: #3e2723;
+  --text-sec-mozo: #795548;
+  --border-mozo: #e8d4b8;
+}
+
+/* Modo Oscuro */
+body.dark-mode .mozos-container {
+  --bg-input-mozo: #4e4039;
+  --text-main-mozo: #e8d4b8;
+  --text-sec-mozo: #bcaaa4;
+  --border-mozo: #5d4037;
+}
+
+.mozos-header {
+  background: linear-gradient(135deg, #6f4e37 0%, #8b5a3c 100%);
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  margin-bottom: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: white;
+}
+
+.mozos-header h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  margin: 0;
+  color: white;
+}
+
+.icon-btn {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: white;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* CHIPS (Filtros) */
+.chips-wrapper {
+  margin: 0 -10px 12px -10px;
+  padding: 0 10px;
+  overflow-x: auto;
+}
+
+.chips-container {
+  display: flex;
+  gap: 8px;
+  padding-bottom: 5px;
+}
+
+.chip {
+  padding: 8px 16px;
+  background: var(--bg-card); /* Usa la variable global o fallback */
+  background-color: white;
+  border: 1px solid var(--border-mozo);
+  border-radius: 50px;
+  font-size: 14px;
+  color: var(--text-sec-mozo);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: 0.2s;
+}
+
+body.dark-mode .chip {
+  background-color: #3e322c;
+}
+
+.chip.active {
+  background-color: var(--primary-mozo) !important;
+  color: white;
+  border-color: var(--primary-mozo);
+}
+
+/* BUSCADOR */
+.search-box-mozo {
+  width: 100%;
+  padding: 12px 15px;
+  border: 1px solid var(--border-mozo);
+  border-radius: 12px;
+  font-size: 16px; 
+  background-color: var(--bg-input-mozo);
+  color: var(--text-main-mozo);
+  outline: none;
+  margin-bottom: 15px;
+  box-sizing: border-box; /* Importante para que no se salga */
+}
+
+/* TARJETAS DE PRODUCTO */
+.card-producto {
+  background-color: white;
+  padding: 15px;
+  margin-bottom: 12px;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border-left: 5px solid var(--primary-mozo);
+}
+
+body.dark-mode .card-producto {
+  background-color: #3e322c;
+}
+
+.card-producto.stock-ok { border-left-color: #2e7d32; }
+.card-producto.stock-low { 
+  border-left-color: #f57f17; 
+  background: linear-gradient(to right, rgba(245, 127, 23, 0.05), white 20%);
+}
+body.dark-mode .card-producto.stock-low {
+  background: linear-gradient(to right, rgba(245, 127, 23, 0.1), #3e322c 20%);
+}
+
+.item-name { font-size: 16px; font-weight: 700; color: var(--text-main-mozo); }
+.item-price { font-size: 18px; font-weight: 700; color: var(--primary-mozo); font-family: 'Playfair Display', serif; }
+.ingredients { color: var(--text-sec-mozo); font-size: 13px; margin-bottom: 10px; }
+
+.stock-badge {
+  padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase;
+}
+.badge-ok { background: #e8f5e9; color: #2e7d32; }
+.badge-low { background: #fff3e0; color: #ef6c00; }
+
+.category-separator {
+  margin-top: 25px; margin-bottom: 10px; font-size: 13px; font-weight: 700; color: var(--text-sec-mozo);
+  text-transform: uppercase; letter-spacing: 1.2px; border-bottom: 1px solid var(--border-mozo);
+}

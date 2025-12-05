@@ -19,4 +19,12 @@ const crear = async (req, res, next) => {
   }
 };
 
-module.exports = { obtenerTodos, crear };
+const eliminar = async (req, res, next) => {
+  try {
+    await destinosModel.eliminar(req.params.id);
+    res.json({ mensaje: 'Destino eliminado' });
+  } catch (error) { next(error); }
+};
+// Agrégala al export
+
+module.exports = { obtenerTodos, crear, eliminar };

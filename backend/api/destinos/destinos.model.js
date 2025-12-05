@@ -13,4 +13,11 @@ const crear = async (nombre, descripcion) => {
   return result.insertId;
 };
 
-module.exports = { obtenerTodos, crear };
+const eliminar = async (id) => {
+  // Soft delete: Lo desactivamos en lugar de borrarlo físico
+  const [result] = await pool.query('UPDATE destinos SET activo = 0 WHERE id = ?', [id]);
+  return result.affectedRows > 0;
+};
+// Recuerda agregar 'eliminar' al module.exports = { ..., eliminar }
+
+module.exports = { obtenerTodos, crear, eliminar };
