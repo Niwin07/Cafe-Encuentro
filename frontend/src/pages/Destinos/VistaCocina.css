@@ -13,55 +13,7 @@
   padding: 1.5rem;
   padding-bottom: 2rem;
   position: relative;
-  overflow: hidden;
-}
-
-/* Barra metálica horizontal donde cuelgan las órdenes */
-.cocina-container::before {
-  content: '';
-  position: fixed;
-  top: 200px;
-  left: 0;
-  right: 0;
-  height: 16px;
-  background: linear-gradient(180deg, 
-    #a8a8a8 0%, 
-    #888888 20%, 
-    #6e6e6e 50%, 
-    #888888 80%, 
-    #a8a8a8 100%
-  );
-  box-shadow: 
-    0 4px 8px rgba(0, 0, 0, 0.4),
-    inset 0 2px 4px rgba(255, 255, 255, 0.3),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.3);
-  z-index: 2;
-  border-top: 2px solid #b8b8b8;
-  border-bottom: 2px solid #5a5a5a;
-}
-
-/* Soportes de la barra metálica */
-.cocina-container::after {
-  content: '';
-  position: fixed;
-  top: 180px;
-  left: 0;
-  right: 0;
-  height: 36px;
-  background: 
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 200px,
-      #6e6e6e 200px,
-      #6e6e6e 208px,
-      #888888 208px,
-      #888888 216px,
-      transparent 216px,
-      transparent 400px
-    );
-  z-index: 1;
-  pointer-events: none;
+  overflow-x: hidden;
 }
 
 /* ========== HEADER PREMIUM ========== */
@@ -73,7 +25,7 @@
     0 15px 50px rgba(255, 107, 53, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.2),
     0 0 80px rgba(255, 107, 53, 0.2);
-  margin-bottom: 2rem;
+  margin-bottom: 3rem;
   position: relative;
   overflow: hidden;
   border: 2px solid rgba(255, 255, 255, 0.1);
@@ -204,15 +156,91 @@
   font-weight: 700;
 }
 
+/* ========== BARRA METÁLICA Y SISTEMA DE ENGANCHE ========== */
+.cocina-orders-section {
+  position: relative;
+  margin-top: 2rem;
+}
+
+/* Barra metálica horizontal donde cuelgan las órdenes */
+.cocina-orders-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -1.5rem;
+  right: -1.5rem;
+  height: 14px;
+  background: linear-gradient(180deg, 
+    #c0c0c0 0%, 
+    #a0a0a0 15%,
+    #808080 50%, 
+    #a0a0a0 85%,
+    #c0c0c0 100%
+  );
+  box-shadow: 
+    0 3px 6px rgba(0, 0, 0, 0.4),
+    inset 0 1px 2px rgba(255, 255, 255, 0.4),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.3);
+  z-index: 5;
+  border-top: 1px solid #d0d0d0;
+  border-bottom: 1px solid #606060;
+}
+
+/* Soportes de la barra metálica */
+.cocina-orders-section::after {
+  content: '';
+  position: absolute;
+  top: -20px;
+  left: -1.5rem;
+  right: -1.5rem;
+  height: 34px;
+  background: 
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 180px,
+      #707070 180px,
+      #707070 186px,
+      #909090 186px,
+      #909090 192px,
+      transparent 192px,
+      transparent 360px
+    );
+  z-index: 4;
+  pointer-events: none;
+}
+
 /* ========== GRID DE PEDIDOS ========== */
 .cocina-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 2rem 1.5rem;
   position: relative;
   z-index: 3;
-  margin-top: 80px;
-  padding-top: 40px;
+  padding-top: 50px;
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.5rem;
+}
+
+/* Scrollbar personalizado */
+.cocina-grid::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cocina-grid::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+}
+
+.cocina-grid::-webkit-scrollbar-thumb {
+  background: rgba(139, 111, 71, 0.5);
+  border-radius: 10px;
+}
+
+.cocina-grid::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 111, 71, 0.7);
 }
 
 /* ========== TARJETA DE PEDIDO ESTILO PIZZA GAME ========== */
@@ -229,42 +257,54 @@
   transform-style: preserve-3d;
 }
 
-/* Clip metálico superior - más realista y conectado a la barra */
+/* Clip metálico superior - conectado a la barra */
 .cocina-card::before {
   content: '';
   position: absolute;
-  top: -44px;
+  top: -50px;
   left: 50%;
   transform: translateX(-50%);
-  width: 60px;
-  height: 48px;
-  background: linear-gradient(180deg, #d0d0d0 0%, #9e9e9e 30%, #7a7a7a 50%, #5e5e5e 100%);
-  border-radius: 10px 10px 0 0;
+  width: 55px;
+  height: 54px;
+  background: linear-gradient(180deg, 
+    #d0d0d0 0%, 
+    #b0b0b0 20%,
+    #909090 40%,
+    #707070 60%,
+    #606060 100%
+  );
+  border-radius: 8px 8px 0 0;
   box-shadow: 
     0 -2px 4px rgba(0, 0, 0, 0.3),
-    inset 0 2px 4px rgba(255, 255, 255, 0.4),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.4);
+    inset 0 2px 3px rgba(255, 255, 255, 0.4),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.4),
+    -2px 0 3px rgba(0, 0, 0, 0.2),
+    2px 0 3px rgba(0, 0, 0, 0.2);
   z-index: 10;
   clip-path: polygon(
-    25% 0%, 75% 0%, 
-    85% 15%, 85% 100%, 
-    15% 100%, 15% 15%
+    22% 0%, 78% 0%, 
+    88% 12%, 88% 100%, 
+    12% 100%, 12% 12%
   );
 }
 
-/* Detalle del clip - el "agarre" */
+/* Detalle del clip - el "agarre" interior */
 .cocina-card::after {
   content: '';
   position: absolute;
-  top: -36px;
+  top: -42px;
   left: 50%;
   transform: translateX(-50%);
-  width: 40px;
-  height: 10px;
-  background: linear-gradient(180deg, #5a5a5a 0%, #3e3e3e 50%, #2a2a2a 100%);
+  width: 38px;
+  height: 8px;
+  background: linear-gradient(180deg, 
+    #4a4a4a 0%, 
+    #2a2a2a 50%, 
+    #1a1a1a 100%
+  );
   border-radius: 2px;
   box-shadow: 
-    inset 0 1px 2px rgba(0, 0, 0, 0.6),
+    inset 0 1px 2px rgba(0, 0, 0, 0.8),
     0 1px 1px rgba(255, 255, 255, 0.2);
   z-index: 11;
 }
@@ -282,7 +322,6 @@
   padding: 1.5rem 1.5rem 1rem 1.5rem;
   border-bottom: 3px solid #8b6f47;
   position: relative;
-  margin-top: 0;
 }
 
 .cocina-header-top {
@@ -295,9 +334,9 @@
 .cocina-pedido-id {
   font-weight: 900;
   font-size: 1.5rem;
-  color: #3e2723;
+  color: white;
   font-family: 'Playfair Display', serif;
-  text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.8);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
   background: linear-gradient(135deg, #ff6b35, #ff8c42);
   padding: 0.5rem 1rem;
   border-radius: 8px;
@@ -360,6 +399,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .cocina-cliente {
@@ -424,9 +464,8 @@
 .cocina-item-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 1rem;
-  margin-bottom: 0.75rem;
 }
 
 .cocina-item-info {
@@ -442,6 +481,7 @@
   gap: 0.75rem;
   font-weight: 700;
   text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.5);
+  flex-wrap: wrap;
 }
 
 .cocina-cantidad {
@@ -460,6 +500,7 @@
     inset 0 -2px 4px rgba(0, 0, 0, 0.2),
     inset 0 2px 4px rgba(255, 255, 255, 0.3);
   border: 2px solid #8b6f47;
+  flex-shrink: 0;
 }
 
 .cocina-item-acomp {
@@ -485,14 +526,15 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Botón de estado */
+/* Botón de estado - ARREGLADO */
 .cocina-estado-btn {
-  padding: 0.875rem 1.5rem;
-  font-size: 1rem;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.875rem;
   font-weight: 900;
   color: white;
   background: linear-gradient(180deg, #ef5350 0%, #d32f2f 100%);
-  border: 3px solid rgba(0, 0, 0, 0.2);
+  border: none;
+  outline: none;
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -506,7 +548,12 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   position: relative;
-  min-width: 160px;
+  min-width: 140px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .cocina-estado-btn:hover:not(:disabled) {
@@ -604,7 +651,7 @@
 .cocina-vacio {
   text-align: center;
   padding: 6rem 2rem;
-  color: rgba(244, 233, 216, 0.6);
+  color: rgba(62, 39, 35, 0.4);
   position: relative;
   z-index: 1;
 }
@@ -623,7 +670,7 @@
 }
 
 .cocina-vacio h2 {
-  color: rgba(244, 233, 216, 0.8);
+  color: rgba(62, 39, 35, 0.6);
   font-size: 2rem;
   margin: 0 0 1rem 0;
   font-family: 'Playfair Display', serif;
@@ -632,13 +679,13 @@
 .cocina-vacio p {
   font-size: 1.125rem;
   opacity: 0.7;
+  color: rgba(62, 39, 35, 0.5);
 }
 
 /* ========== RESPONSIVE ========== */
-@media (max-width: 1023px) {
+@media (max-width: 1200px) {
   .cocina-grid {
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 1.25rem;
   }
 }
 
@@ -649,6 +696,7 @@
 
   .cocina-header {
     padding: 1.5rem;
+    margin-bottom: 2rem;
   }
 
   .cocina-header-content {
@@ -664,12 +712,28 @@
 
   .cocina-grid {
     grid-template-columns: 1fr;
-    gap: 1rem;
+    gap: 2rem 1rem;
+    max-height: calc(100vh - 320px);
   }
 
   .cocina-item-header {
     flex-direction: column;
+    align-items: stretch;
     gap: 0.75rem;
+  }
+
+  .cocina-estado-btn {
+    width: 100%;
+  }
+
+  .cocina-orders-section::before {
+    left: -1rem;
+    right: -1rem;
+  }
+
+  .cocina-orders-section::after {
+    left: -1rem;
+    right: -1rem;
   }
 }
 
@@ -678,11 +742,14 @@
   animation: slideInUp 0.5s ease-out backwards;
 }
 
-.cocina-card:nth-child(1) { animation-delay: 0.1s; }
-.cocina-card:nth-child(2) { animation-delay: 0.2s; }
-.cocina-card:nth-child(3) { animation-delay: 0.3s; }
-.cocina-card:nth-child(4) { animation-delay: 0.4s; }
-.cocina-card:nth-child(5) { animation-delay: 0.5s; }
+.cocina-card:nth-child(1) { animation-delay: 0.05s; }
+.cocina-card:nth-child(2) { animation-delay: 0.1s; }
+.cocina-card:nth-child(3) { animation-delay: 0.15s; }
+.cocina-card:nth-child(4) { animation-delay: 0.2s; }
+.cocina-card:nth-child(5) { animation-delay: 0.25s; }
+.cocina-card:nth-child(6) { animation-delay: 0.3s; }
+.cocina-card:nth-child(7) { animation-delay: 0.35s; }
+.cocina-card:nth-child(8) { animation-delay: 0.4s; }
 
 @keyframes slideInUp {
   from {

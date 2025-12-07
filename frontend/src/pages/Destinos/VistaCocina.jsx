@@ -5,7 +5,6 @@ import './VistaCocina.css';
 // Animación para el botón flotante (CSS en JS)
 const styleSheet = document.styleSheets[0];
 try {
-    // Try-catch por seguridad si el estilo ya existe
     styleSheet.insertRule(`
       @keyframes pulse-button {
         0%, 100% { transform: scale(1); box-shadow: 0 8px 25px rgba(255, 61, 0, 0.5); }
@@ -22,8 +21,8 @@ const VistaCocina = () => {
   // --- REFS (Variables que sobreviven al intervalo) ---
   const audioRef = useRef(null);
   const prevPedidosRef = useRef(0);
-  const permisoSonidoRef = useRef(false); // Soluciona el problema del closure
-  const primeraCargaRef = useRef(true);   // Soluciona el problema de refrescar la página
+  const permisoSonidoRef = useRef(false);
+  const primeraCargaRef = useRef(true);
 
   // Inicializar audio
   useEffect(() => {
@@ -38,25 +37,16 @@ const VistaCocina = () => {
       const res = await api.get('/pedidos/cocina/activos');
       const nuevosItems = res.data.items || {};
       
-      // Contar total de platos/items
       const totalItemsActuales = Object.values(nuevosItems).reduce(
         (sum, list) => sum + list.length, 
         0
       );
       
-      // LOGICA DE SONIDO MEJORADA
       if (primeraCargaRef.current) {
-        // CASO 1: Es la primera vez que carga la página
-        // Simplemente guardamos el valor actual y bajamos la bandera.
-        // No reproducimos sonido para no aturdir al recargar.
         prevPedidosRef.current = totalItemsActuales;
         primeraCargaRef.current = false;
         console.log(`📥 Carga inicial. Items: ${totalItemsActuales} (Sin sonido)`);
       } else {
-        // CASO 2: Actualizaciones subsecuentes (Polling)
-        
-        // Verificamos si hay MÁS items que antes
-        // NOTA: Quitamos la condición "prevPedidosRef.current > 0" para que funcione de 0 a 1
         if (
           totalItemsActuales > prevPedidosRef.current && 
           permisoSonidoRef.current && 
@@ -72,7 +62,6 @@ const VistaCocina = () => {
           if (navigator.vibrate) navigator.vibrate(200);
         }
         
-        // Actualizamos la referencia para la próxima vuelta
         prevPedidosRef.current = totalItemsActuales;
       }
       
@@ -91,7 +80,6 @@ const VistaCocina = () => {
     audioRef.current.currentTime = 0;
     audioRef.current.play()
       .then(() => {
-        // Actualizamos estado (UI) y Ref (Lógica)
         setPermisoSonido(true);
         permisoSonidoRef.current = true; 
         console.log("🔊 Sistema de audio activado");
@@ -104,8 +92,8 @@ const VistaCocina = () => {
 
   // Intervalo (Polling)
   useEffect(() => {
-    cargarPedidos(); // Carga inmediata
-    const intervalo = setInterval(cargarPedidos, 5000); // Repetir cada 5s
+    cargarPedidos();
+    const intervalo = setInterval(cargarPedidos, 5000);
     return () => clearInterval(intervalo);
   }, []); 
 
@@ -118,7 +106,6 @@ const VistaCocina = () => {
       const nuevoEstado = flujo[idx + 1];
       try {
         await api.patch(`/pedidos/items/${itemId}/estado`, { estado: nuevoEstado });
-        // Recargamos inmediatamente para ver el cambio
         cargarPedidos();
       } catch (error) {
         alert('Error actualizando estado');
@@ -211,7 +198,7 @@ const VistaCocina = () => {
         </div>
       </div>
 
-      {/* CONTENIDO */}
+      {/* CONTENIDO CON BARRA */}
       {Object.keys(pedidos).length === 0 ? (
         <div className="cocina-vacio">
           <span className="cocina-vacio-icon">🎉</span>
@@ -219,64 +206,67 @@ const VistaCocina = () => {
           <p>No hay pedidos pendientes en este momento</p>
         </div>
       ) : (
-        <div className="cocina-grid">
-          {Object.entries(pedidos).map(([pedidoId, items]) => (
-            <div key={pedidoId} className="cocina-card">
-              
-              <div className="cocina-card-header">
-                <div className="cocina-header-top">
-                  <span className="cocina-pedido-id">#{pedidoId.slice(-6)}</span>
-                  <div className="cocina-time-badge">
-                    <span className="cocina-time-icon">🕐</span>
-                    <span>{new Date(items[0].created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                  </div>
-                </div>
-                <div className="cocina-header-bottom">
-                  <div className="cocina-cliente">
-                    <span className="cocina-cliente-icon">👤</span>
-                    <span>{items[0].cliente}</span>
-                  </div>
-                  <div className="cocina-cajera-badge">
-                    <span>💼</span>
-                    <span>{items[0].cajera_nombre}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="cocina-card-body">
-                {items.map(item => (
-                  <div key={item.id} className="cocina-item">
-                    <div className="cocina-item-header">
-                      <div className="cocina-item-info">
-                        <div className="cocina-item-nombre">
-                          <span className="cocina-cantidad">{item.cantidad}</span>
-                          <span>{item.producto_nombre}</span>
-                        </div>
-                        {item.acompanamiento_nombre && (
-                          <div className="cocina-item-acomp">
-                            <span>🥄</span> {item.acompanamiento_nombre}
-                          </div>
-                        )}
-                        {item.instrucciones_especiales && (
-                          <div className="cocina-item-nota">
-                            ⚠️ {item.instrucciones_especiales}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <button 
-                        onClick={() => avanzarEstado(item.id, item.estado)}
-                        disabled={item.estado === 'Listo'}
-                        className={`cocina-estado-btn ${getEstadoClass(item.estado)}`}
-                      >
-                        {getEstadoIcon(item.estado)} {item.estado}
-                      </button>
+        <div className="cocina-orders-section">
+          <div className="cocina-grid">
+            {Object.entries(pedidos).map(([pedidoId, items]) => (
+              <div key={pedidoId} className="cocina-card">
+                
+                <div className="cocina-card-header">
+                  <div className="cocina-header-top">
+                    <span className="cocina-pedido-id">#{pedidoId.slice(-6)}</span>
+                    <div className="cocina-time-badge">
+                      <span className="cocina-time-icon">🕐</span>
+                      <span className="cocina-time">{new Date(items[0].created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                     </div>
                   </div>
-                ))}
+                  <div className="cocina-header-bottom">
+                    <div className="cocina-cliente">
+                      <span className="cocina-cliente-icon">👤</span>
+                      <span>{items[0].cliente}</span>
+                    </div>
+                    <div className="cocina-cajera-badge">
+                      <span>💼</span>
+                      <span>{items[0].cajera_nombre}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="cocina-card-body">
+                  {items.map(item => (
+                    <div key={item.id} className="cocina-item">
+                      <div className="cocina-item-header">
+                        <div className="cocina-item-info">
+                          <div className="cocina-item-nombre">
+                            <span className="cocina-cantidad">{item.cantidad}</span>
+                            <span>{item.producto_nombre}</span>
+                          </div>
+                          {item.acompanamiento_nombre && (
+                            <div className="cocina-item-acomp">
+                              <span>🥄</span> {item.acompanamiento_nombre}
+                            </div>
+                          )}
+                          {item.instrucciones_especiales && (
+                            <div className="cocina-item-nota">
+                              ⚠️ {item.instrucciones_especiales}
+                            </div>
+                          )}
+                        </div>
+                        
+                        <button 
+                          onClick={() => avanzarEstado(item.id, item.estado)}
+                          disabled={item.estado === 'Listo'}
+                          className={`cocina-estado-btn ${getEstadoClass(item.estado)}`}
+                        >
+                          <span>{getEstadoIcon(item.estado)}</span>
+                          <span>{item.estado}</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>
