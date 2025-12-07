@@ -325,7 +325,7 @@
   padding: 1.5rem 1.5rem 1rem 1.5rem;
   border-bottom: 3px solid #8b6f47;
   position: relative;
-  pointer-events: none;
+  /* pointer-events: none;  <--- ELIMINA O COMENTA ESTA LÍNEA */
 }
 
 .cocina-card-header * {
@@ -442,17 +442,18 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* Cuerpo de la tarjeta */
 .cocina-card-body {
   padding: 1.5rem;
   background: linear-gradient(to bottom, transparent 0%, rgba(139, 111, 71, 0.05) 100%);
-  pointer-events: none;
+  /* pointer-events: none; <--- ELIMINA O COMENTA ESTA LÍNEA CRÍTICA */
 }
 
+/* También puedes borrar esta regla de abajo */
+/*
 .cocina-card-body * {
   pointer-events: auto;
 }
-
+*/
 /* Items del pedido */
 .cocina-item {
   margin-bottom: 1rem;
