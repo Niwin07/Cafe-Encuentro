@@ -13,7 +13,7 @@ const VistaCocina = () => {
 
   // Inicializar audio al montar el componente
   useEffect(() => {
-    audioRef.current = new Audio('/ding.mp3');
+    audioRef.current = new Audio('../../../public/ding.mp3');
     audioRef.current.load(); // Pre-cargar el audio
   }, []);
 
