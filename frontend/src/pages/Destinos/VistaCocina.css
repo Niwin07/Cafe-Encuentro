@@ -4,8 +4,8 @@
 
 .cocina-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #0a0806 0%, #1a1410 50%, #2c1f18 100%);
-  color: #f4e9d8;
+  background: linear-gradient(135deg, #8b7355 0%, #a0826d 50%, #b5927f 100%);
+  color: #3e2723;
   padding: 1.5rem;
   padding-bottom: 2rem;
   position: relative;
@@ -21,8 +21,8 @@
   right: 0;
   bottom: 0;
   background-image: 
-    linear-gradient(rgba(255, 152, 0, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 152, 0, 0.03) 1px, transparent 1px);
+    linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
   background-size: 50px 50px;
   pointer-events: none;
   z-index: 0;
@@ -422,7 +422,7 @@
   font-size: 1rem;
   font-weight: 900;
   color: white;
-  border: none;
+  border: 3px solid rgba(0, 0, 0, 0.2);
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -436,18 +436,17 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   position: relative;
-  border: 3px solid rgba(0, 0, 0, 0.2);
   min-width: 160px;
 }
 
-.cocina-estado-btn:hover {
+.cocina-estado-btn:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 
     0 6px 0 rgba(0, 0, 0, 0.3),
     0 8px 16px rgba(0, 0, 0, 0.3);
 }
 
-.cocina-estado-btn:active {
+.cocina-estado-btn:active:not(:disabled) {
   transform: translateY(2px);
   box-shadow: 
     0 2px 0 rgba(0, 0, 0, 0.3),
@@ -471,13 +470,13 @@
     0 6px 12px rgba(211, 47, 47, 0.4);
 }
 
-.estado-pendiente:hover {
+.estado-pendiente:hover:not(:disabled) {
   box-shadow: 
     0 6px 0 #b71c1c,
     0 8px 16px rgba(211, 47, 47, 0.5);
 }
 
-.estado-pendiente:active {
+.estado-pendiente:active:not(:disabled) {
   box-shadow: 
     0 2px 0 #b71c1c,
     0 3px 6px rgba(211, 47, 47, 0.3);
@@ -490,13 +489,13 @@
     0 6px 12px rgba(245, 124, 0, 0.4);
 }
 
-.estado-en-preparacion:hover {
+.estado-en-preparacion:hover:not(:disabled) {
   box-shadow: 
     0 6px 0 #e65100,
     0 8px 16px rgba(245, 124, 0, 0.5);
 }
 
-.estado-en-preparacion:active {
+.estado-en-preparacion:active:not(:disabled) {
   box-shadow: 
     0 2px 0 #e65100,
     0 3px 6px rgba(245, 124, 0, 0.3);
@@ -519,13 +518,13 @@
   }
 }
 
-.estado-listo:hover {
+.estado-listo:hover:not(:disabled) {
   box-shadow: 
     0 6px 0 #2e7d32,
     0 8px 16px rgba(67, 160, 71, 0.5);
 }
 
-.estado-listo:active {
+.estado-listo:active:not(:disabled) {
   box-shadow: 
     0 2px 0 #2e7d32,
     0 3px 6px rgba(67, 160, 71, 0.3);
