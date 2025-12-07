@@ -1,23 +1,4 @@
-.cocina-time-icon {
-  font-size: 1rem;
-  animation: tick 1s ease-in-out infinite;
-  position: relative;
-  z-index: 1;
-}
-
-@keyframes tick {
-  0%, 100% { transform: rotate(0deg); }
-  50% { transform: rotate(10deg); }
-}
-
-.cocina-time {
-  font-size: 0.875rem;
-  color: #3e2723;
-  font-weight: 700;
-  position: relative;
-  z-index: 1;
-  }
- /* ============================================
+/* ============================================
    VISTA COCINA - ESTILO PIZZA GAME 🍕
    ============================================ */
 
@@ -39,10 +20,10 @@
 .cocina-container::before {
   content: '';
   position: fixed;
-  top: 120px;
+  top: 200px;
   left: 0;
   right: 0;
-  height: 20px;
+  height: 16px;
   background: linear-gradient(180deg, 
     #a8a8a8 0%, 
     #888888 20%, 
@@ -63,20 +44,20 @@
 .cocina-container::after {
   content: '';
   position: fixed;
-  top: 100px;
+  top: 180px;
   left: 0;
   right: 0;
-  height: 40px;
+  height: 36px;
   background: 
     repeating-linear-gradient(
       90deg,
       transparent,
       transparent 200px,
       #6e6e6e 200px,
-      #6e6e6e 210px,
-      #888888 210px,
-      #888888 220px,
-      transparent 220px,
+      #6e6e6e 208px,
+      #888888 208px,
+      #888888 216px,
+      transparent 216px,
       transparent 400px
     );
   z-index: 1;
@@ -230,7 +211,8 @@
   gap: 1.5rem;
   position: relative;
   z-index: 3;
-  margin-top: 60px;
+  margin-top: 80px;
+  padding-top: 40px;
 }
 
 /* ========== TARJETA DE PEDIDO ESTILO PIZZA GAME ========== */
@@ -251,22 +233,22 @@
 .cocina-card::before {
   content: '';
   position: absolute;
-  top: -35px;
+  top: -44px;
   left: 50%;
   transform: translateX(-50%);
-  width: 70px;
-  height: 55px;
+  width: 60px;
+  height: 48px;
   background: linear-gradient(180deg, #d0d0d0 0%, #9e9e9e 30%, #7a7a7a 50%, #5e5e5e 100%);
-  border-radius: 12px 12px 0 0;
+  border-radius: 10px 10px 0 0;
   box-shadow: 
     0 -2px 4px rgba(0, 0, 0, 0.3),
     inset 0 2px 4px rgba(255, 255, 255, 0.4),
     inset 0 -2px 4px rgba(0, 0, 0, 0.4);
   z-index: 10;
   clip-path: polygon(
-    20% 0%, 80% 0%, 
-    90% 20%, 90% 100%, 
-    10% 100%, 10% 20%
+    25% 0%, 75% 0%, 
+    85% 15%, 85% 100%, 
+    15% 100%, 15% 15%
   );
 }
 
@@ -274,13 +256,13 @@
 .cocina-card::after {
   content: '';
   position: absolute;
-  top: -28px;
+  top: -36px;
   left: 50%;
   transform: translateX(-50%);
-  width: 45px;
-  height: 12px;
+  width: 40px;
+  height: 10px;
   background: linear-gradient(180deg, #5a5a5a 0%, #3e3e3e 50%, #2a2a2a 100%);
-  border-radius: 3px;
+  border-radius: 2px;
   box-shadow: 
     inset 0 1px 2px rgba(0, 0, 0, 0.6),
     0 1px 1px rgba(255, 255, 255, 0.2);
@@ -300,7 +282,7 @@
   padding: 1.5rem 1.5rem 1rem 1.5rem;
   border-bottom: 3px solid #8b6f47;
   position: relative;
-  margin-top: 10px;
+  margin-top: 0;
 }
 
 .cocina-header-top {
@@ -356,6 +338,8 @@
 .cocina-time-icon {
   font-size: 1rem;
   animation: tick 1s ease-in-out infinite;
+  position: relative;
+  z-index: 1;
 }
 
 @keyframes tick {
@@ -367,6 +351,8 @@
   font-size: 0.875rem;
   color: #3e2723;
   font-weight: 700;
+  position: relative;
+  z-index: 1;
 }
 
 .cocina-header-bottom {
