@@ -22,16 +22,16 @@ const VistaCocina = () => {
   const [ultimoUpdate, setUltimoUpdate] = useState(new Date());
   const [permisoSonido, setPermisoSonido] = useState(false);
 
-  // Referencias para audio y conteo previo
+  // Referencias para audio, conteo previo y EL PERMISO (Corrección)
   const audioRef = useRef(null);
   const prevPedidosRef = useRef(0);
+  const permisoSonidoRef = useRef(false); // ✅ Nueva referencia para solucionar el bug
 
   // Inicializar audio al montar el componente
   useEffect(() => {
-    // En Vite/React, los archivos en /public se acceden directamente con /
     audioRef.current = new Audio('/ding.mp3');
-    audioRef.current.volume = 1.0; // Volumen al máximo
-    audioRef.current.load(); // Pre-cargar el audio
+    audioRef.current.volume = 1.0; 
+    audioRef.current.load(); 
   }, []);
 
   const cargarPedidos = async () => {
@@ -39,7 +39,6 @@ const VistaCocina = () => {
       const res = await api.get('/pedidos/cocina/activos');
       const nuevosItems = res.data.items || {};
       
-      // Contamos el total de items/platos individuales
       const totalItemsActuales = Object.values(nuevosItems).reduce(
         (sum, list) => sum + list.length, 
         0
@@ -47,25 +46,26 @@ const VistaCocina = () => {
       
       console.log(`📊 Items previos: ${prevPedidosRef.current}, Items actuales: ${totalItemsActuales}`);
       
-      // Si hay más items que antes Y tenemos permiso, suena la campana
-      // IMPORTANTE: Solo suena si prevPedidosRef NO es 0 (ya pasó la carga inicial)
-      if (totalItemsActuales > prevPedidosRef.current && prevPedidosRef.current > 0 && permisoSonido && audioRef.current) {
+      // ✅ CORRECCIÓN AQUÍ: Usamos permisoSonidoRef.current en lugar del estado
+      if (
+        totalItemsActuales > prevPedidosRef.current && 
+        prevPedidosRef.current > 0 && 
+        permisoSonidoRef.current && // Leemos el valor actualizado del Ref
+        audioRef.current
+      ) {
         console.log("🔔 NUEVO PEDIDO DETECTADO! Reproduciendo sonido...");
-        audioRef.current.currentTime = 0; // Reset al inicio
+        audioRef.current.currentTime = 0;
         audioRef.current.play()
           .then(() => console.log("✅ Sonido reproducido correctamente"))
           .catch(e => console.error("❌ Error reproduciendo audio:", e));
         
-        // Opcional: Vibración en móviles
         if (navigator.vibrate) {
           navigator.vibrate(200);
         }
       }
       
-      // Actualizamos SIEMPRE la referencia (incluso en la primera carga)
       prevPedidosRef.current = totalItemsActuales;
       
-      // Actualizamos el estado DESPUÉS de la lógica de sonido
       setPedidos(nuevosItems);
       setUltimoUpdate(new Date());
       
@@ -74,7 +74,6 @@ const VistaCocina = () => {
     }
   };
 
-  // Activar audio (los navegadores bloquean audio automático sin interacción del usuario)
   const activarSonido = () => {
     console.log("🔔 Intentando activar sonido...");
     
@@ -84,13 +83,13 @@ const VistaCocina = () => {
       return;
     }
 
-    // REPRODUCIR EL SONIDO COMPLETO como prueba
     audioRef.current.currentTime = 0;
     audioRef.current.play()
       .then(() => {
         console.log("✅ Audio activado correctamente - REPRODUCIENDO PRUEBA");
+        // ✅ Actualizamos AMBOS: Estado (para la UI) y Ref (para la lógica)
         setPermisoSonido(true);
-        // El sonido se reproduce completamente como confirmación
+        permisoSonidoRef.current = true; 
       })
       .catch(e => {
         console.error("❌ Error activando sonido:", e);
@@ -98,12 +97,12 @@ const VistaCocina = () => {
       });
   };
 
-  // Polling cada 5 segundos - SIN dependencias que causen loops
+  // Polling cada 5 segundos
   useEffect(() => {
     cargarPedidos();
     const intervalo = setInterval(cargarPedidos, 5000);
     return () => clearInterval(intervalo);
-  }, []); // ❌ NO incluir permisoSonido aquí
+  }, []); 
 
   const avanzarEstado = async (itemId, estadoActual) => {
     const flujo = ['Pendiente', 'Listo'];
@@ -138,14 +137,13 @@ const VistaCocina = () => {
     }
   };
 
-  // Calcular estadísticas
   const totalPedidos = Object.keys(pedidos).length;
   const totalItems = Object.values(pedidos).reduce((sum, items) => sum + items.length, 0);
 
   return (
     <div className="cocina-container">
       
-      {/* Botón para activar sonido - FUERA del header para que sea clickeable */}
+      {/* Botón para activar sonido */}
       {!permisoSonido && (
         <div style={{
           position: 'fixed',
