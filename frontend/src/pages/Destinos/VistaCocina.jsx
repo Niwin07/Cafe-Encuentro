@@ -38,18 +38,19 @@ const VistaCocina = () => {
     try {
       const res = await api.get('/pedidos/cocina/activos');
       const nuevosItems = res.data.items || {};
-      setPedidos(nuevosItems);
-      setUltimoUpdate(new Date());
-
+      
       // Contamos el total de items/platos individuales
       const totalItemsActuales = Object.values(nuevosItems).reduce(
         (sum, list) => sum + list.length, 
         0
       );
       
+      console.log(`📊 Items previos: ${prevPedidosRef.current}, Items actuales: ${totalItemsActuales}`);
+      
       // Si hay más items que antes Y tenemos permiso, suena la campana
-      if (totalItemsActuales > prevPedidosRef.current && permisoSonido && audioRef.current) {
-        console.log("🔔 NUEVO PEDIDO! Reproduciendo sonido...");
+      // IMPORTANTE: Solo suena si prevPedidosRef NO es 0 (ya pasó la carga inicial)
+      if (totalItemsActuales > prevPedidosRef.current && prevPedidosRef.current > 0 && permisoSonido && audioRef.current) {
+        console.log("🔔 NUEVO PEDIDO DETECTADO! Reproduciendo sonido...");
         audioRef.current.currentTime = 0; // Reset al inicio
         audioRef.current.play()
           .then(() => console.log("✅ Sonido reproducido correctamente"))
@@ -61,8 +62,13 @@ const VistaCocina = () => {
         }
       }
       
-      // Actualizamos la referencia para la próxima comparación
+      // Actualizamos SIEMPRE la referencia (incluso en la primera carga)
       prevPedidosRef.current = totalItemsActuales;
+      
+      // Actualizamos el estado DESPUÉS de la lógica de sonido
+      setPedidos(nuevosItems);
+      setUltimoUpdate(new Date());
+      
     } catch (error) {
       console.error('Error conectando con cocina:', error);
     }
