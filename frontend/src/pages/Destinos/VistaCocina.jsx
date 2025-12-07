@@ -49,7 +49,11 @@ const VistaCocina = () => {
       
       // Si hay más items que antes Y tenemos permiso, suena la campana
       if (totalItemsActuales > prevPedidosRef.current && permisoSonido && audioRef.current) {
-        audioRef.current.play().catch(e => console.log("Error reproduciendo audio:", e));
+        console.log("🔔 NUEVO PEDIDO! Reproduciendo sonido...");
+        audioRef.current.currentTime = 0; // Reset al inicio
+        audioRef.current.play()
+          .then(() => console.log("✅ Sonido reproducido correctamente"))
+          .catch(e => console.error("❌ Error reproduciendo audio:", e));
         
         // Opcional: Vibración en móviles
         if (navigator.vibrate) {
@@ -74,13 +78,13 @@ const VistaCocina = () => {
       return;
     }
 
+    // REPRODUCIR EL SONIDO COMPLETO como prueba
+    audioRef.current.currentTime = 0;
     audioRef.current.play()
       .then(() => {
-        console.log("✅ Audio activado correctamente");
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
+        console.log("✅ Audio activado correctamente - REPRODUCIENDO PRUEBA");
         setPermisoSonido(true);
-        alert("✅ Sonido activado! Ahora sonarán las notificaciones de nuevos pedidos");
+        // El sonido se reproduce completamente como confirmación
       })
       .catch(e => {
         console.error("❌ Error activando sonido:", e);
