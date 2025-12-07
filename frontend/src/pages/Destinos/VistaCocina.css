@@ -11,9 +11,10 @@
   background-size: auto, 4px 4px, auto;
   color: #3e2723;
   padding: 1.5rem;
-  padding-bottom: 2rem;
+  padding-bottom: 4rem;
   position: relative;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* ========== HEADER PREMIUM ========== */
@@ -218,7 +219,7 @@
   position: relative;
   z-index: 3;
   padding-top: 50px;
-  max-height: calc(100vh - 280px);
+  padding-bottom: 3rem;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 0.5rem;
@@ -554,6 +555,12 @@
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
+  pointer-events: auto;
+  z-index: 100;
+}
+
+.cocina-estado-btn * {
+  pointer-events: none;
 }
 
 .cocina-estado-btn:hover:not(:disabled) {
@@ -692,6 +699,7 @@
 @media (max-width: 767px) {
   .cocina-container {
     padding: 1rem;
+    padding-bottom: 3rem;
   }
 
   .cocina-header {
@@ -713,7 +721,6 @@
   .cocina-grid {
     grid-template-columns: 1fr;
     gap: 2rem 1rem;
-    max-height: calc(100vh - 320px);
   }
 
   .cocina-item-header {
