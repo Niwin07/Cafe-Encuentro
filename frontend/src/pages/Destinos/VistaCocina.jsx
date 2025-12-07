@@ -2,69 +2,79 @@ import { useState, useEffect, useRef } from 'react';
 import api from '../../services/api';
 import './VistaCocina.css';
 
-// Animación para el botón flotante
+// Animación para el botón flotante (CSS en JS)
 const styleSheet = document.styleSheets[0];
-styleSheet.insertRule(`
-  @keyframes pulse-button {
-    0%, 100% { 
-      transform: scale(1);
-      box-shadow: 0 8px 25px rgba(255, 61, 0, 0.5);
-    }
-    50% { 
-      transform: scale(1.05);
-      box-shadow: 0 12px 35px rgba(255, 61, 0, 0.8);
-    }
-  }
-`, styleSheet.cssRules.length);
+try {
+    // Try-catch por seguridad si el estilo ya existe
+    styleSheet.insertRule(`
+      @keyframes pulse-button {
+        0%, 100% { transform: scale(1); box-shadow: 0 8px 25px rgba(255, 61, 0, 0.5); }
+        50% { transform: scale(1.05); box-shadow: 0 12px 35px rgba(255, 61, 0, 0.8); }
+      }
+    `, styleSheet.cssRules.length);
+} catch (e) {}
 
 const VistaCocina = () => {
   const [pedidos, setPedidos] = useState({});
   const [ultimoUpdate, setUltimoUpdate] = useState(new Date());
   const [permisoSonido, setPermisoSonido] = useState(false);
 
-  // Referencias para audio, conteo previo y EL PERMISO (Corrección)
+  // --- REFS (Variables que sobreviven al intervalo) ---
   const audioRef = useRef(null);
   const prevPedidosRef = useRef(0);
-  const permisoSonidoRef = useRef(false); // ✅ Nueva referencia para solucionar el bug
+  const permisoSonidoRef = useRef(false); // Soluciona el problema del closure
+  const primeraCargaRef = useRef(true);   // Soluciona el problema de refrescar la página
 
-  // Inicializar audio al montar el componente
+  // Inicializar audio
   useEffect(() => {
     audioRef.current = new Audio('/ding.mp3');
     audioRef.current.volume = 1.0; 
     audioRef.current.load(); 
   }, []);
 
+  // Función principal de carga
   const cargarPedidos = async () => {
     try {
       const res = await api.get('/pedidos/cocina/activos');
       const nuevosItems = res.data.items || {};
       
+      // Contar total de platos/items
       const totalItemsActuales = Object.values(nuevosItems).reduce(
         (sum, list) => sum + list.length, 
         0
       );
       
-      console.log(`📊 Items previos: ${prevPedidosRef.current}, Items actuales: ${totalItemsActuales}`);
-      
-      // ✅ CORRECCIÓN AQUÍ: Usamos permisoSonidoRef.current en lugar del estado
-      if (
-        totalItemsActuales > prevPedidosRef.current && 
-        prevPedidosRef.current > 0 && 
-        permisoSonidoRef.current && // Leemos el valor actualizado del Ref
-        audioRef.current
-      ) {
-        console.log("🔔 NUEVO PEDIDO DETECTADO! Reproduciendo sonido...");
-        audioRef.current.currentTime = 0;
-        audioRef.current.play()
-          .then(() => console.log("✅ Sonido reproducido correctamente"))
-          .catch(e => console.error("❌ Error reproduciendo audio:", e));
+      // LOGICA DE SONIDO MEJORADA
+      if (primeraCargaRef.current) {
+        // CASO 1: Es la primera vez que carga la página
+        // Simplemente guardamos el valor actual y bajamos la bandera.
+        // No reproducimos sonido para no aturdir al recargar.
+        prevPedidosRef.current = totalItemsActuales;
+        primeraCargaRef.current = false;
+        console.log(`📥 Carga inicial. Items: ${totalItemsActuales} (Sin sonido)`);
+      } else {
+        // CASO 2: Actualizaciones subsecuentes (Polling)
         
-        if (navigator.vibrate) {
-          navigator.vibrate(200);
+        // Verificamos si hay MÁS items que antes
+        // NOTA: Quitamos la condición "prevPedidosRef.current > 0" para que funcione de 0 a 1
+        if (
+          totalItemsActuales > prevPedidosRef.current && 
+          permisoSonidoRef.current && 
+          audioRef.current
+        ) {
+          console.log(`🔔 NUEVO PEDIDO! (De ${prevPedidosRef.current} a ${totalItemsActuales})`);
+          
+          audioRef.current.currentTime = 0;
+          audioRef.current.play()
+            .then(() => console.log("✅ Sonido OK"))
+            .catch(e => console.error("❌ Error Audio:", e));
+          
+          if (navigator.vibrate) navigator.vibrate(200);
         }
+        
+        // Actualizamos la referencia para la próxima vuelta
+        prevPedidosRef.current = totalItemsActuales;
       }
-      
-      prevPedidosRef.current = totalItemsActuales;
       
       setPedidos(nuevosItems);
       setUltimoUpdate(new Date());
@@ -74,36 +84,32 @@ const VistaCocina = () => {
     }
   };
 
+  // Función para activar audio con interacción de usuario
   const activarSonido = () => {
-    console.log("🔔 Intentando activar sonido...");
-    
-    if (!audioRef.current) {
-      console.error("❌ Audio ref no existe");
-      alert("Error: El audio no se inicializó correctamente");
-      return;
-    }
+    if (!audioRef.current) return;
 
     audioRef.current.currentTime = 0;
     audioRef.current.play()
       .then(() => {
-        console.log("✅ Audio activado correctamente - REPRODUCIENDO PRUEBA");
-        // ✅ Actualizamos AMBOS: Estado (para la UI) y Ref (para la lógica)
+        // Actualizamos estado (UI) y Ref (Lógica)
         setPermisoSonido(true);
         permisoSonidoRef.current = true; 
+        console.log("🔊 Sistema de audio activado");
       })
       .catch(e => {
-        console.error("❌ Error activando sonido:", e);
-        alert(`❌ Error: ${e.message}\n\n¿Existe el archivo /public/ding.mp3?`);
+        alert(`No se pudo reproducir el audio. Verifica que exista /public/ding.mp3`);
+        console.error(e);
       });
   };
 
-  // Polling cada 5 segundos
+  // Intervalo (Polling)
   useEffect(() => {
-    cargarPedidos();
-    const intervalo = setInterval(cargarPedidos, 5000);
+    cargarPedidos(); // Carga inmediata
+    const intervalo = setInterval(cargarPedidos, 5000); // Repetir cada 5s
     return () => clearInterval(intervalo);
   }, []); 
 
+  // Cambiar estado del pedido
   const avanzarEstado = async (itemId, estadoActual) => {
     const flujo = ['Pendiente', 'Listo'];
     const idx = flujo.indexOf(estadoActual);  
@@ -112,6 +118,7 @@ const VistaCocina = () => {
       const nuevoEstado = flujo[idx + 1];
       try {
         await api.patch(`/pedidos/items/${itemId}/estado`, { estado: nuevoEstado });
+        // Recargamos inmediatamente para ver el cambio
         cargarPedidos();
       } catch (error) {
         alert('Error actualizando estado');
@@ -119,6 +126,7 @@ const VistaCocina = () => {
     }
   };
 
+  // Helpers de UI
   const getEstadoClass = (estado) => {
     switch(estado) {
       case 'Pendiente': return 'estado-pendiente';
@@ -143,7 +151,7 @@ const VistaCocina = () => {
   return (
     <div className="cocina-container">
       
-      {/* Botón para activar sonido */}
+      {/* Botón flotante para activar sonido */}
       {!permisoSonido && (
         <div style={{
           position: 'fixed',
@@ -167,17 +175,7 @@ const VistaCocina = () => {
               display: 'flex',
               alignItems: 'center',
               gap: '10px',
-              transition: 'all 0.3s ease',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.transform = 'scale(1.05)';
-              e.target.style.boxShadow = '0 12px 35px rgba(255, 61, 0, 0.7)';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.transform = 'scale(1)';
-              e.target.style.boxShadow = '0 8px 25px rgba(255, 61, 0, 0.5)';
+              textTransform: 'uppercase'
             }}
           >
             <span style={{fontSize: '1.3em'}}>🔔</span>
@@ -186,18 +184,12 @@ const VistaCocina = () => {
         </div>
       )}
       
-      {/* HEADER PREMIUM */}
+      {/* HEADER */}
       <div className="cocina-header">
         <div className="cocina-header-content">
           <div className="cocina-title-section">
-            <h1>
-              <span className="cocina-emoji">🍳</span>
-              Cocina - Pedidos Activos
-            </h1>
-            <div className="cocina-subtitle">
-              <span>🔥</span>
-              <span>Sistema de gestión en tiempo real</span>
-            </div>
+            <h1><span className="cocina-emoji">🍳</span> Cocina</h1>
+            <div className="cocina-subtitle">🔥 Gestión en tiempo real</div>
           </div>
           
           <div className="cocina-stats">
@@ -205,12 +197,10 @@ const VistaCocina = () => {
               <div className="cocina-stat-value">{totalPedidos}</div>
               <div className="cocina-stat-label">Pedidos</div>
             </div>
-            
             <div className="cocina-stat-item">
               <div className="cocina-stat-value">{totalItems}</div>
               <div className="cocina-stat-label">Platos</div>
             </div>
-            
             <div className="cocina-live-indicator">
               <div className="cocina-pulse-dot"></div>
               <div className="cocina-update-time">
@@ -221,7 +211,7 @@ const VistaCocina = () => {
         </div>
       </div>
 
-      {/* ESTADO VACÍO */}
+      {/* CONTENIDO */}
       {Object.keys(pedidos).length === 0 ? (
         <div className="cocina-vacio">
           <span className="cocina-vacio-icon">🎉</span>
@@ -229,33 +219,23 @@ const VistaCocina = () => {
           <p>No hay pedidos pendientes en este momento</p>
         </div>
       ) : (
-        
-        /* GRID DE PEDIDOS */
         <div className="cocina-grid">
           {Object.entries(pedidos).map(([pedidoId, items]) => (
             <div key={pedidoId} className="cocina-card">
               
-              {/* Header del pedido */}
               <div className="cocina-card-header">
                 <div className="cocina-header-top">
-                  <span className="cocina-pedido-id">
-                    #{pedidoId.slice(-6)}
-                  </span>
-                  
+                  <span className="cocina-pedido-id">#{pedidoId.slice(-6)}</span>
                   <div className="cocina-time-badge">
                     <span className="cocina-time-icon">🕐</span>
-                    <span className="cocina-time">
-                      {new Date(items[0].created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                    </span>
+                    <span>{new Date(items[0].created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                   </div>
                 </div>
-                
                 <div className="cocina-header-bottom">
                   <div className="cocina-cliente">
                     <span className="cocina-cliente-icon">👤</span>
                     <span>{items[0].cliente}</span>
                   </div>
-                  
                   <div className="cocina-cajera-badge">
                     <span>💼</span>
                     <span>{items[0].cajera_nombre}</span>
@@ -263,7 +243,6 @@ const VistaCocina = () => {
                 </div>
               </div>
 
-              {/* Cuerpo del pedido */}
               <div className="cocina-card-body">
                 {items.map(item => (
                   <div key={item.id} className="cocina-item">
@@ -273,14 +252,11 @@ const VistaCocina = () => {
                           <span className="cocina-cantidad">{item.cantidad}</span>
                           <span>{item.producto_nombre}</span>
                         </div>
-                        
                         {item.acompanamiento_nombre && (
                           <div className="cocina-item-acomp">
-                            <span>🥄</span>
-                            <span>{item.acompanamiento_nombre}</span>
+                            <span>🥄</span> {item.acompanamiento_nombre}
                           </div>
                         )}
-                        
                         {item.instrucciones_especiales && (
                           <div className="cocina-item-nota">
                             ⚠️ {item.instrucciones_especiales}
@@ -293,9 +269,7 @@ const VistaCocina = () => {
                         disabled={item.estado === 'Listo'}
                         className={`cocina-estado-btn ${getEstadoClass(item.estado)}`}
                       >
-                        <span>{getEstadoIcon(item.estado)}</span>
-                        <span>{item.estado}</span>
-                        {item.estado !== 'Listo' && <span>→</span>}
+                        {getEstadoIcon(item.estado)} {item.estado}
                       </button>
                     </div>
                   </div>
