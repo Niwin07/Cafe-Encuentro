@@ -1,54 +1,74 @@
-import { useState, useEffect, useRef } from 'react'; // 1. Importar useRef
+import { useState, useEffect, useRef } from 'react';
 import api from '../../services/api';
 import './VistaCocina.css';
 
 const VistaCocina = () => {
   const [pedidos, setPedidos] = useState({});
   const [ultimoUpdate, setUltimoUpdate] = useState(new Date());
+  const [permisoSonido, setPermisoSonido] = useState(false);
 
-  const audioRef = useRef(new Audio('/ding.mp3')); // Asegúrate de tener el archivo en /public
+  // Referencias para audio y conteo previo
+  const audioRef = useRef(null);
   const prevPedidosRef = useRef(0);
-  const [permisoSonido, setPermisoSonido] = useState(false); // Para bloqueo de navegadores
+
+  // Inicializar audio al montar el componente
+  useEffect(() => {
+    audioRef.current = new Audio('/ding.mp3');
+    audioRef.current.load(); // Pre-cargar el audio
+  }, []);
 
   const cargarPedidos = async () => {
     try {
       const res = await api.get('/pedidos/cocina/activos');
-      setPedidos(res.data.items || {});
+      const nuevosItems = res.data.items || {};
+      setPedidos(nuevosItems);
       setUltimoUpdate(new Date());
 
       // Contamos el total de items/platos individuales
-      const totalItemsActuales = Object.values(nuevosItems).reduce((sum, list) => sum + list.length, 0);
+      const totalItemsActuales = Object.values(nuevosItems).reduce(
+        (sum, list) => sum + list.length, 
+        0
+      );
       
-      // Si hay más items que antes, suena la campana
-      if (totalItemsActuales > prevPedidosRef.current) {
-        if (permisoSonido) {
-          audioRef.current.play().catch(e => console.log("Error audio:", e));
-        }
+      // Si hay más items que antes Y tenemos permiso, suena la campana
+      if (totalItemsActuales > prevPedidosRef.current && permisoSonido && audioRef.current) {
+        audioRef.current.play().catch(e => console.log("Error reproduciendo audio:", e));
+        
         // Opcional: Vibración en móviles
-        if (navigator.vibrate) navigator.vibrate(200);
+        if (navigator.vibrate) {
+          navigator.vibrate(200);
+        }
       }
       
-      // Actualizamos la referencia
+      // Actualizamos la referencia para la próxima comparación
       prevPedidosRef.current = totalItemsActuales;
     } catch (error) {
       console.error('Error conectando con cocina:', error);
     }
   };
 
-  // 4. Activar audio (los navegadores bloquean audio automático si no hay interacción)
+  // Activar audio (los navegadores bloquean audio automático sin interacción del usuario)
   const activarSonido = () => {
-    audioRef.current.play().then(() => {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-        setPermisoSonido(true);
-    }).catch(e => alert("Permite el sonido en el navegador"));
+    if (audioRef.current) {
+      audioRef.current.play()
+        .then(() => {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+          setPermisoSonido(true);
+        })
+        .catch(e => {
+          console.error("Error activando sonido:", e);
+          alert("No se pudo activar el sonido. Verifica que el archivo /public/ding.mp3 exista.");
+        });
+    }
   };
 
+  // Polling cada 5 segundos - SIN dependencias que causen loops
   useEffect(() => {
     cargarPedidos();
-    const intervalo = setInterval(cargarPedidos, 5000); // 5 seg es mejor para tiempo real
+    const intervalo = setInterval(cargarPedidos, 5000);
     return () => clearInterval(intervalo);
-  }, [permisoSonido]);
+  }, []); // ❌ NO incluir permisoSonido aquí
 
   const avanzarEstado = async (itemId, estadoActual) => {
     const flujo = ['Pendiente', 'Listo'];
@@ -123,11 +143,32 @@ const VistaCocina = () => {
             </div>
           </div>
         </div>
+        
+        {/* Botón para activar sonido */}
         {!permisoSonido && (
-            <button onClick={activarSonido} className="btn-activar-sonido" style={{background: 'red', color:'white', padding:'10px'}}>
-               🔇 Activar Sonido
-            </button>
-         )}
+          <button 
+            onClick={activarSonido} 
+            style={{
+              marginTop: '1rem',
+              padding: '12px 24px',
+              background: 'linear-gradient(135deg, #ff6b35, #ff8c42)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              fontSize: '1rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              boxShadow: '0 4px 15px rgba(255, 107, 53, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            <span>🔔</span>
+            <span>Activar Notificaciones de Sonido</span>
+          </button>
+        )}
       </div>
 
       {/* ESTADO VACÍO */}
