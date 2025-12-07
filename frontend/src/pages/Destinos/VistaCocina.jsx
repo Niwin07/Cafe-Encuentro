@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react'; // 1. Importar useRef
 import api from '../../services/api';
 import './VistaCocina.css';
 
@@ -6,25 +6,53 @@ const VistaCocina = () => {
   const [pedidos, setPedidos] = useState({});
   const [ultimoUpdate, setUltimoUpdate] = useState(new Date());
 
+  const audioRef = useRef(new Audio('/ding.mp3')); // Asegúrate de tener el archivo en /public
+  const prevPedidosRef = useRef(0);
+  const [permisoSonido, setPermisoSonido] = useState(false); // Para bloqueo de navegadores
+
   const cargarPedidos = async () => {
     try {
       const res = await api.get('/pedidos/cocina/activos');
       setPedidos(res.data.items || {});
       setUltimoUpdate(new Date());
+
+      // Contamos el total de items/platos individuales
+      const totalItemsActuales = Object.values(nuevosItems).reduce((sum, list) => sum + list.length, 0);
+      
+      // Si hay más items que antes, suena la campana
+      if (totalItemsActuales > prevPedidosRef.current) {
+        if (permisoSonido) {
+          audioRef.current.play().catch(e => console.log("Error audio:", e));
+        }
+        // Opcional: Vibración en móviles
+        if (navigator.vibrate) navigator.vibrate(200);
+      }
+      
+      // Actualizamos la referencia
+      prevPedidosRef.current = totalItemsActuales;
     } catch (error) {
       console.error('Error conectando con cocina:', error);
     }
   };
 
+  // 4. Activar audio (los navegadores bloquean audio automático si no hay interacción)
+  const activarSonido = () => {
+    audioRef.current.play().then(() => {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        setPermisoSonido(true);
+    }).catch(e => alert("Permite el sonido en el navegador"));
+  };
+
   useEffect(() => {
     cargarPedidos();
-    const intervalo = setInterval(cargarPedidos, 10000);
+    const intervalo = setInterval(cargarPedidos, 5000); // 5 seg es mejor para tiempo real
     return () => clearInterval(intervalo);
-  }, []);
+  }, [permisoSonido]);
 
   const avanzarEstado = async (itemId, estadoActual) => {
-    const flujo = ['Pendiente', 'En Preparación', 'Listo'];
-    const idx = flujo.indexOf(estadoActual);
+    const flujo = ['Pendiente', 'Listo'];
+    const idx = flujo.indexOf(estadoActual);  
     
     if (idx < flujo.length - 1) {
       const nuevoEstado = flujo[idx + 1];
@@ -95,6 +123,11 @@ const VistaCocina = () => {
             </div>
           </div>
         </div>
+        {!permisoSonido && (
+            <button onClick={activarSonido} className="btn-activar-sonido" style={{background: 'red', color:'white', padding:'10px'}}>
+               🔇 Activar Sonido
+            </button>
+         )}
       </div>
 
       {/* ESTADO VACÍO */}

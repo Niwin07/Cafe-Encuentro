@@ -222,13 +222,12 @@ const obtenerItemsPorDestino = async (destinoId, estados = []) => {
 
   const valores = [destinoId];
 
-  // Filtrar por estados
   if (estados.length > 0) {
     query += ` AND pi.estado IN (${estados.map(() => '?').join(',')})`;
     valores.push(...estados);
   }
 
-  query += ' ORDER BY p.fecha_hora DESC, pi.id ASC';
+  query += ' ORDER BY p.fecha_hora ASC, pi.id ASC'; 
 
   const [rows] = await pool.query(query, valores);
   return rows;
