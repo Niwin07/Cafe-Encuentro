@@ -1,10 +1,33 @@
-/* ============================================
+.cocina-time-icon {
+  font-size: 1rem;
+  animation: tick 1s ease-in-out infinite;
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes tick {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(10deg); }
+}
+
+.cocina-time {
+  font-size: 0.875rem;
+  color: #3e2723;
+  font-weight: 700;
+  position: relative;
+  z-index: 1;
+  }
+ /* ============================================
    VISTA COCINA - ESTILO PIZZA GAME 🍕
    ============================================ */
 
 .cocina-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #8b7355 0%, #a0826d 50%, #b5927f 100%);
+  background: 
+    linear-gradient(180deg, rgba(0,0,0,0.3) 0%, transparent 100%),
+    url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%23d4d4d4" width="100" height="100"/><rect fill="%23c8c8c8" x="0" y="50" width="100" height="1"/><rect fill="%23e0e0e0" x="0" y="25" width="100" height="0.5"/><rect fill="%23e0e0e0" x="0" y="75" width="100" height="0.5"/></svg>') repeat,
+    linear-gradient(135deg, #e8e8e8 0%, #c4c4c4 100%);
+  background-size: auto, 4px 4px, auto;
   color: #3e2723;
   padding: 1.5rem;
   padding-bottom: 2rem;
@@ -12,20 +35,52 @@
   overflow: hidden;
 }
 
-/* Patrón de rejilla en el fondo */
+/* Barra metálica horizontal donde cuelgan las órdenes */
 .cocina-container::before {
   content: '';
   position: fixed;
-  top: 0;
+  top: 120px;
   left: 0;
   right: 0;
-  bottom: 0;
-  background-image: 
-    linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
-  background-size: 50px 50px;
+  height: 20px;
+  background: linear-gradient(180deg, 
+    #a8a8a8 0%, 
+    #888888 20%, 
+    #6e6e6e 50%, 
+    #888888 80%, 
+    #a8a8a8 100%
+  );
+  box-shadow: 
+    0 4px 8px rgba(0, 0, 0, 0.4),
+    inset 0 2px 4px rgba(255, 255, 255, 0.3),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.3);
+  z-index: 2;
+  border-top: 2px solid #b8b8b8;
+  border-bottom: 2px solid #5a5a5a;
+}
+
+/* Soportes de la barra metálica */
+.cocina-container::after {
+  content: '';
+  position: fixed;
+  top: 100px;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: 
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 200px,
+      #6e6e6e 200px,
+      #6e6e6e 210px,
+      #888888 210px,
+      #888888 220px,
+      transparent 220px,
+      transparent 400px
+    );
+  z-index: 1;
   pointer-events: none;
-  z-index: 0;
 }
 
 /* ========== HEADER PREMIUM ========== */
@@ -174,7 +229,8 @@
   grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 1.5rem;
   position: relative;
-  z-index: 1;
+  z-index: 3;
+  margin-top: 60px;
 }
 
 /* ========== TARJETA DE PEDIDO ESTILO PIZZA GAME ========== */
@@ -191,35 +247,43 @@
   transform-style: preserve-3d;
 }
 
-/* Clip metálico superior */
+/* Clip metálico superior - más realista y conectado a la barra */
 .cocina-card::before {
   content: '';
   position: absolute;
-  top: -20px;
+  top: -35px;
   left: 50%;
   transform: translateX(-50%);
-  width: 80px;
-  height: 40px;
-  background: linear-gradient(180deg, #b8b8b8 0%, #8c8c8c 50%, #6e6e6e 100%);
-  border-radius: 15px 15px 5px 5px;
+  width: 70px;
+  height: 55px;
+  background: linear-gradient(180deg, #d0d0d0 0%, #9e9e9e 30%, #7a7a7a 50%, #5e5e5e 100%);
+  border-radius: 12px 12px 0 0;
   box-shadow: 
-    0 4px 8px rgba(0, 0, 0, 0.4),
-    inset 0 2px 4px rgba(255, 255, 255, 0.3);
+    0 -2px 4px rgba(0, 0, 0, 0.3),
+    inset 0 2px 4px rgba(255, 255, 255, 0.4),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.4);
   z-index: 10;
+  clip-path: polygon(
+    20% 0%, 80% 0%, 
+    90% 20%, 90% 100%, 
+    10% 100%, 10% 20%
+  );
 }
 
-/* Detalle del clip */
+/* Detalle del clip - el "agarre" */
 .cocina-card::after {
   content: '';
   position: absolute;
-  top: -12px;
+  top: -28px;
   left: 50%;
   transform: translateX(-50%);
-  width: 50px;
-  height: 8px;
-  background: #5a5a5a;
-  border-radius: 4px;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+  width: 45px;
+  height: 12px;
+  background: linear-gradient(180deg, #5a5a5a 0%, #3e3e3e 50%, #2a2a2a 100%);
+  border-radius: 3px;
+  box-shadow: 
+    inset 0 1px 2px rgba(0, 0, 0, 0.6),
+    0 1px 1px rgba(255, 255, 255, 0.2);
   z-index: 11;
 }
 
@@ -268,6 +332,25 @@
   border-radius: 50px;
   border: 3px solid #8b6f47;
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Barra de progreso animada en el tiempo */
+.cocina-time-badge::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, #ff6b35, #ffa94d);
+  animation: progress-bar 60s linear infinite;
+}
+
+@keyframes progress-bar {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
 }
 
 .cocina-time-icon {
@@ -422,6 +505,7 @@
   font-size: 1rem;
   font-weight: 900;
   color: white;
+  background: linear-gradient(180deg, #ef5350 0%, #d32f2f 100%);
   border: 3px solid rgba(0, 0, 0, 0.2);
   border-radius: 10px;
   cursor: pointer;
