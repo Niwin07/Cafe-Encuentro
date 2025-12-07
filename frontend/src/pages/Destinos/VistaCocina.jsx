@@ -2,6 +2,21 @@ import { useState, useEffect, useRef } from 'react';
 import api from '../../services/api';
 import './VistaCocina.css';
 
+// Animación para el botón flotante
+const styleSheet = document.styleSheets[0];
+styleSheet.insertRule(`
+  @keyframes pulse-button {
+    0%, 100% { 
+      transform: scale(1);
+      box-shadow: 0 8px 25px rgba(255, 61, 0, 0.5);
+    }
+    50% { 
+      transform: scale(1.05);
+      box-shadow: 0 12px 35px rgba(255, 61, 0, 0.8);
+    }
+  }
+`, styleSheet.cssRules.length);
+
 const VistaCocina = () => {
   const [pedidos, setPedidos] = useState({});
   const [ultimoUpdate, setUltimoUpdate] = useState(new Date());
@@ -13,7 +28,9 @@ const VistaCocina = () => {
 
   // Inicializar audio al montar el componente
   useEffect(() => {
-    audioRef.current = new Audio('../../../public/ding.mp3');
+    // En Vite/React, los archivos en /public se acceden directamente con /
+    audioRef.current = new Audio('/ding.mp3');
+    audioRef.current.volume = 1.0; // Volumen al máximo
     audioRef.current.load(); // Pre-cargar el audio
   }, []);
 
@@ -49,18 +66,26 @@ const VistaCocina = () => {
 
   // Activar audio (los navegadores bloquean audio automático sin interacción del usuario)
   const activarSonido = () => {
-    if (audioRef.current) {
-      audioRef.current.play()
-        .then(() => {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
-          setPermisoSonido(true);
-        })
-        .catch(e => {
-          console.error("Error activando sonido:", e);
-          alert("No se pudo activar el sonido. Verifica que el archivo /public/ding.mp3 exista.");
-        });
+    console.log("🔔 Intentando activar sonido...");
+    
+    if (!audioRef.current) {
+      console.error("❌ Audio ref no existe");
+      alert("Error: El audio no se inicializó correctamente");
+      return;
     }
+
+    audioRef.current.play()
+      .then(() => {
+        console.log("✅ Audio activado correctamente");
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        setPermisoSonido(true);
+        alert("✅ Sonido activado! Ahora sonarán las notificaciones de nuevos pedidos");
+      })
+      .catch(e => {
+        console.error("❌ Error activando sonido:", e);
+        alert(`❌ Error: ${e.message}\n\n¿Existe el archivo /public/ding.mp3?`);
+      });
   };
 
   // Polling cada 5 segundos - SIN dependencias que causen loops
@@ -110,6 +135,49 @@ const VistaCocina = () => {
   return (
     <div className="cocina-container">
       
+      {/* Botón para activar sonido - FUERA del header para que sea clickeable */}
+      {!permisoSonido && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          zIndex: 9999,
+          animation: 'pulse-button 2s infinite'
+        }}>
+          <button 
+            onClick={activarSonido} 
+            style={{
+              padding: '14px 28px',
+              background: 'linear-gradient(135deg, #ff3d00, #ff6b35)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '50px',
+              fontSize: '1rem',
+              fontWeight: '800',
+              cursor: 'pointer',
+              boxShadow: '0 8px 25px rgba(255, 61, 0, 0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              transition: 'all 0.3s ease',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.transform = 'scale(1.05)';
+              e.target.style.boxShadow = '0 12px 35px rgba(255, 61, 0, 0.7)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.transform = 'scale(1)';
+              e.target.style.boxShadow = '0 8px 25px rgba(255, 61, 0, 0.5)';
+            }}
+          >
+            <span style={{fontSize: '1.3em'}}>🔔</span>
+            <span>Activar Sonido</span>
+          </button>
+        </div>
+      )}
+      
       {/* HEADER PREMIUM */}
       <div className="cocina-header">
         <div className="cocina-header-content">
@@ -143,32 +211,6 @@ const VistaCocina = () => {
             </div>
           </div>
         </div>
-        
-        {/* Botón para activar sonido */}
-        {!permisoSonido && (
-          <button 
-            onClick={activarSonido} 
-            style={{
-              marginTop: '1rem',
-              padding: '12px 24px',
-              background: 'linear-gradient(135deg, #ff6b35, #ff8c42)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '12px',
-              fontSize: '1rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              boxShadow: '0 4px 15px rgba(255, 107, 53, 0.4)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              transition: 'all 0.3s ease'
-            }}
-          >
-            <span>🔔</span>
-            <span>Activar Notificaciones de Sonido</span>
-          </button>
-        )}
       </div>
 
       {/* ESTADO VACÍO */}
