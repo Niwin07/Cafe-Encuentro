@@ -256,6 +256,7 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   transform-style: preserve-3d;
+  pointer-events: auto;
 }
 
 /* Clip metálico superior - conectado a la barra */
@@ -287,6 +288,7 @@
     88% 12%, 88% 100%, 
     12% 100%, 12% 12%
   );
+  pointer-events: none;
 }
 
 /* Detalle del clip - el "agarre" interior */
@@ -308,10 +310,10 @@
     inset 0 1px 2px rgba(0, 0, 0, 0.8),
     0 1px 1px rgba(255, 255, 255, 0.2);
   z-index: 11;
+  pointer-events: none;
 }
 
 .cocina-card:hover {
-  transform: translateY(-4px) rotateX(2deg);
   box-shadow: 
     0 12px 30px rgba(0, 0, 0, 0.4),
     inset 0 2px 0 rgba(255, 255, 255, 0.5);
@@ -323,6 +325,11 @@
   padding: 1.5rem 1.5rem 1rem 1.5rem;
   border-bottom: 3px solid #8b6f47;
   position: relative;
+  pointer-events: none;
+}
+
+.cocina-card-header * {
+  pointer-events: auto;
 }
 
 .cocina-header-top {
@@ -439,6 +446,11 @@
 .cocina-card-body {
   padding: 1.5rem;
   background: linear-gradient(to bottom, transparent 0%, rgba(139, 111, 71, 0.05) 100%);
+  pointer-events: none;
+}
+
+.cocina-card-body * {
+  pointer-events: auto;
 }
 
 /* Items del pedido */
@@ -451,11 +463,7 @@
   transition: all 0.2s ease;
   position: relative;
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
-}
-
-.cocina-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
 }
 
 .cocina-item:last-child {
@@ -467,10 +475,13 @@
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
+  position: relative;
+  z-index: 1;
 }
 
 .cocina-item-info {
   flex: 1;
+  pointer-events: none;
 }
 
 .cocina-item-nombre {
@@ -527,7 +538,7 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Botón de estado - ARREGLADO */
+/* Botón de estado - SUPER ARREGLADO */
 .cocina-estado-btn {
   padding: 0.75rem 1.25rem;
   font-size: 0.875rem;
@@ -537,7 +548,7 @@
   border: none;
   outline: none;
   border-radius: 10px;
-  cursor: pointer;
+  cursor: pointer !important;
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
@@ -555,12 +566,13 @@
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
-  pointer-events: auto;
-  z-index: 100;
+  pointer-events: auto !important;
+  z-index: 1000;
+  isolation: isolate;
 }
 
 .cocina-estado-btn * {
-  pointer-events: none;
+  pointer-events: none !important;
 }
 
 .cocina-estado-btn:hover:not(:disabled) {
