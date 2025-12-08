@@ -103,6 +103,7 @@ const obtenerAcompanamientos = async (productoId) => {
       a.id,
       a.nombre,
       a.categoria,
+      a.stock,  
       a.activo
     FROM acompanamientos a
     INNER JOIN productos_acompanamientos pa ON a.id = pa.acompanamiento_id
