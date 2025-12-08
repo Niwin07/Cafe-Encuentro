@@ -15,6 +15,16 @@ const {
   agruparPor
 } = require('../utils/helpers');
 
+// --- HELPER INTERNO ---
+const obtenerIdDestinoPorNombre = async (nombre) => {
+  try {
+    const [rows] = await pool.query('SELECT id FROM destinos WHERE nombre LIKE ? LIMIT 1', [`%${nombre}%`]);
+    if (rows.length > 0) return rows[0].id;
+    return nombre === 'Cocina' ? 1 : 2; 
+  } catch (error) {
+    return nombre === 'Cocina' ? 1 : 2;
+  }
+};
 
 /**
  * Crear un nuevo pedido completo con sus items (requiere autenticación)
@@ -54,7 +64,7 @@ const crear = async (req, res, next) => {
         return res.status(400).json({ error: 'Stock insuficiente', mensaje: `Stock insuficiente para "${producto.nombre}"` });
       }
 
-      // 2. Validar Acompañamiento (MODIFICADO: Lógica de Vínculo)
+      // 2. Validar Acompañamiento (CON LÓGICA DE VINCULACIÓN)
       let dataAcomp = null;
       if (acompId) {
         // Hacemos JOIN para ver si tiene un producto vinculado y traer SU stock
@@ -95,10 +105,10 @@ const crear = async (req, res, next) => {
 
       productosValidados.push({
         ...item,
-        cantidad, 
-        acompanamiento_id: acompId,
+        cantidad, // Usar la cantidad parseada
+        acompanamiento_id: acompId, // Usar ID parseado
         producto,
-        dataAcomp, // Guardamos la info del acompañamiento (incluyendo vínculo)
+        dataAcomp, // Guardamos info del acompañamiento
         subtotal: calcularSubtotal(producto.precio, cantidad)
       });
     }
@@ -132,7 +142,7 @@ const crear = async (req, res, next) => {
       // A. Actualizar Stock Producto Principal
       await connection.query('UPDATE productos SET stock = stock - ? WHERE id = ?', [item.cantidad, item.producto.id]);
 
-      // B. Actualizar Stock Acompañamiento (MODIFICADO)
+      // B. Actualizar Stock Acompañamiento (CON LÓGICA DE VINCULACIÓN)
       if (item.acompanamiento_id && item.dataAcomp) {
         if (item.dataAcomp.producto_vinculado_id) {
             // Si está vinculado, descontamos al PRODUCTO VINCULADO
@@ -157,6 +167,139 @@ const crear = async (req, res, next) => {
   } finally {
     connection.release();
   }
+};
+
+/**
+ * Cancelar pedido completo y devolver stock (requiere autenticación)
+ * PATCH /api/pedidos/:id/cancelar
+ */
+const cancelar = async (req, res, next) => {
+  const connection = await pool.getConnection();
+
+  try {
+    const { id } = req.params;
+    await connection.beginTransaction();
+
+    const pedido = await pedidosModel.obtenerPorId(id);
+
+    if (!pedido) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Pedido no encontrado', mensaje: MENSAJES_ERROR.PEDIDO_NO_ENCONTRADO });
+    }
+
+    if (pedido.estado_general === 'Cancelado' || pedido.estado_general === 'Completado') {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Acción no permitida', mensaje: 'El pedido ya fue completado o cancelado' });
+    }
+
+    // Filtramos items que no estén ya cancelados/entregados
+    const items = pedido.items.filter(item => item.estado !== 'Entregado' && item.estado !== 'Cancelado');
+
+    for (const item of items) {
+      const cantidad = parseInt(item.cantidad);
+      
+      // 1. Devolver stock Producto Principal
+      await connection.query('UPDATE productos SET stock = stock + ? WHERE id = ?', [cantidad, item.producto_id]);
+
+      // 2. Devolver stock Acompañamiento (CON LÓGICA DE VINCULACIÓN)
+      if (item.acompanamiento_id) {
+        // Verificamos si tiene vínculo ACTUALMENTE
+        const [rows] = await connection.query(
+            'SELECT producto_vinculado_id FROM acompanamientos WHERE id = ?', 
+            [item.acompanamiento_id]
+        );
+        
+        if (rows.length > 0) {
+            const vinculadoId = rows[0].producto_vinculado_id;
+            
+            if (vinculadoId) {
+                // Devolver al producto vinculado
+                await connection.query('UPDATE productos SET stock = stock + ? WHERE id = ?', [cantidad, vinculadoId]);
+            } else {
+                // Devolver al acompañamiento
+                await connection.query('UPDATE acompanamientos SET stock = stock + ? WHERE id = ?', [cantidad, item.acompanamiento_id]);
+            }
+        }
+      }
+
+      await pedidosModel.actualizarEstadoItem(item.id, 'Cancelado');
+    }
+
+    await pedidosModel.actualizarEstadoGeneral(id, 'Cancelado');
+    await connection.commit();
+
+    res.json({ mensaje: MENSAJES_EXITO.PEDIDO_CANCELADO, pedido_id: id });
+
+  } catch (error) {
+    await connection.rollback();
+    next(error);
+  } finally {
+    connection.release();
+  }
+};
+
+/**
+ * Eliminar pedido (soft delete o lógica especial)
+ * DELETE /api/pedidos/:id
+ */
+const eliminar = async (req, res, next) => {
+  const connection = await pool.getConnection();
+
+  try {
+    const { id } = req.params;
+    await connection.beginTransaction();
+
+    const pedido = await pedidosModel.obtenerPorId(id);
+    if (!pedido) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Pedido no encontrado', mensaje: MENSAJES_ERROR.PEDIDO_NO_ENCONTRADO });
+    }
+
+    // Solo devolvemos stock si no estaba cancelado previamente
+    if (pedido.estado_general !== 'Cancelado') {
+      const items = pedido.items;
+      for (const item of items) {
+        if (item.estado !== 'Cancelado') {
+          const cantidad = parseInt(item.cantidad);
+
+          // 1. Devolver stock Producto
+          await connection.query('UPDATE productos SET stock = stock + ? WHERE id = ?', [cantidad, item.producto_id]);
+          
+          // 2. Devolver stock Acompañamiento
+          if (item.acompanamiento_id) {
+             const [rows] = await connection.query(
+                'SELECT producto_vinculado_id FROM acompanamientos WHERE id = ?', 
+                [item.acompanamiento_id]
+             );
+             
+             if (rows.length > 0) {
+                const vinculadoId = rows[0].producto_vinculado_id;
+                if (vinculadoId) {
+                    await connection.query('UPDATE productos SET stock = stock + ? WHERE id = ?', [cantidad, vinculadoId]);
+                } else {
+                    await connection.query('UPDATE acompanamientos SET stock = stock + ? WHERE id = ?', [cantidad, item.acompanamiento_id]);
+                }
+             }
+          }
+        }
+      }
+    }
+
+    // Eliminar items y pedido
+    await connection.query('DELETE FROM pedidos_items WHERE pedido_id = ?', [id]);
+    await connection.query('DELETE FROM pedidos WHERE id = ?', [id]);
+
+    await connection.commit();
+    res.json({ mensaje: 'Registro eliminado y stock ajustado.', id_eliminado: id });
+
+  } catch (error) {
+    await connection.rollback();
+    next(error);
+  } finally {
+    connection.release();
+  }
+};
+
 /**
  * Obtener todos los pedidos con filtros (requiere autenticación)
  * GET /api/pedidos
@@ -240,27 +383,11 @@ const obtenerActivosPorDestino = async (req, res, next) => {
  * Obtener items de cocina activos (público)
  * GET /api/pedidos/cocina/activos
  */
-
-// --- NUEVA FUNCIÓN HELPER ---
-const obtenerIdDestinoPorNombre = async (nombre) => {
-  try {
-    const [rows] = await pool.query('SELECT id FROM destinos WHERE nombre LIKE ? LIMIT 1', [`%${nombre}%`]);
-    // Si lo encuentra usa ese ID, si no, usa los defaults (1 para Cocina, 2 para Cafetería)
-    if (rows.length > 0) return rows[0].id;
-    return nombre === 'Cocina' ? 1 : 2; 
-  } catch (error) {
-    return nombre === 'Cocina' ? 1 : 2;
-  }
-};
-
-
 const obtenerCocinaActivos = async (req, res, next) => {
   try {
-    // MODIFICADO: Usamos el helper en lugar de un ID fijo
     const destinoId = await obtenerIdDestinoPorNombre('Cocina');
     const items = await pedidosModel.obtenerItemsActivosPorDestino(destinoId);
     
-    // Agrupar por pedido
     const itemsAgrupados = agruparPor(items, 'pedido_id');
 
     res.json({
@@ -279,12 +406,9 @@ const obtenerCocinaActivos = async (req, res, next) => {
  */
 const obtenerCafeteriaActivos = async (req, res, next) => {
   try {
-    // MODIFICADO: Usamos el helper en lugar de un ID fijo
-    const destinoId = await obtenerIdDestinoPorNombre('Cafeteria'); // Buscamos por nombre (flexible con/sin tilde por el LIKE del helper)
-    
+    const destinoId = await obtenerIdDestinoPorNombre('Cafeteria');
     const items = await pedidosModel.obtenerItemsActivosPorDestino(destinoId);
     
-    // Agrupar por pedido
     const itemsAgrupados = agruparPor(items, 'pedido_id');
 
     res.json({
@@ -306,7 +430,6 @@ const cambiarEstadoItem = async (req, res, next) => {
     const { itemId } = req.params;
     const { estado } = req.body;
 
-    // Validar estado
     if (!estado || !ESTADOS_ITEM_VALIDOS.includes(estado)) {
       return res.status(400).json({
         error: 'Estado inválido',
@@ -314,7 +437,6 @@ const cambiarEstadoItem = async (req, res, next) => {
       });
     }
 
-    // Obtener item
     const item = await pedidosModel.obtenerItemPorId(itemId);
 
     if (!item) {
@@ -324,14 +446,11 @@ const cambiarEstadoItem = async (req, res, next) => {
       });
     }
 
-    // Actualizar estado del item
     await pedidosModel.actualizarEstadoItem(itemId, estado);
 
-    // Obtener todos los items del pedido para recalcular estado general
     const todosLosItems = await pedidosModel.obtenerItemsPorPedidoId(item.pedido_id);
     const nuevoEstadoGeneral = calcularEstadoGeneral(todosLosItems);
 
-    // Actualizar estado general del pedido
     await pedidosModel.actualizarEstadoGeneral(item.pedido_id, nuevoEstadoGeneral);
 
     res.json({
@@ -357,7 +476,6 @@ const marcarEntregado = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    // Verificar que el pedido existe
     const pedido = await pedidosModel.obtenerPorId(id);
 
     if (!pedido) {
@@ -367,7 +485,6 @@ const marcarEntregado = async (req, res, next) => {
       });
     }
 
-    // Marcar todos los items como entregados
     const items = await pedidosModel.obtenerItemsPorPedidoId(id);
 
     for (const item of items) {
@@ -376,7 +493,6 @@ const marcarEntregado = async (req, res, next) => {
       }
     }
 
-    // Actualizar estado general a Completado
     await pedidosModel.actualizarEstadoGeneral(id, 'Completado');
 
     res.json({
@@ -386,130 +502,6 @@ const marcarEntregado = async (req, res, next) => {
 
   } catch (error) {
     next(error);
-  }
-};
-
-/**
- * Cancelar pedido completo y devolver stock (requiere autenticación)
- * PATCH /api/pedidos/:id/cancelar
- */
-const cancelar = async (req, res, next) => {
-  const connection = await pool.getConnection();
-
-  try {
-    const { id } = req.params;
-    await connection.beginTransaction();
-
-    const pedido = await pedidosModel.obtenerPorId(id);
-
-    if (!pedido) {
-      await connection.rollback();
-      return res.status(404).json({ error: 'Pedido no encontrado', mensaje: MENSAJES_ERROR.PEDIDO_NO_ENCONTRADO });
-    }
-
-    if (pedido.estado_general === 'Cancelado' || pedido.estado_general === 'Completado') {
-        await connection.rollback();
-        return res.status(400).json({ error: 'Acción no permitida', mensaje: 'El pedido ya fue completado o cancelado' });
-    }
-
-    const items = pedido.items.filter(item => item.estado !== 'Entregado' && item.estado !== 'Cancelado');
-
-    for (const item of items) {
-      const cantidad = parseInt(item.cantidad);
-      
-      // 1. Devolver stock Producto Principal
-      await connection.query('UPDATE productos SET stock = stock + ? WHERE id = ?', [cantidad, item.producto_id]);
-
-      // 2. Devolver stock Acompañamiento (MODIFICADO)
-      if (item.acompanamiento_id) {
-        // Necesitamos verificar si tiene vínculo ACTUALMENTE
-        const [rows] = await connection.query(
-            'SELECT producto_vinculado_id FROM acompanamientos WHERE id = ?', 
-            [item.acompanamiento_id]
-        );
-        
-        if (rows.length > 0) {
-            const vinculadoId = rows[0].producto_vinculado_id;
-            
-            if (vinculadoId) {
-                // Devolver al producto vinculado
-                await connection.query('UPDATE productos SET stock = stock + ? WHERE id = ?', [cantidad, vinculadoId]);
-            } else {
-                // Devolver al acompañamiento
-                await connection.query('UPDATE acompanamientos SET stock = stock + ? WHERE id = ?', [cantidad, item.acompanamiento_id]);
-            }
-        }
-      }
-
-      await pedidosModel.actualizarEstadoItem(item.id, 'Cancelado');
-    }
-
-    await pedidosModel.actualizarEstadoGeneral(id, 'Cancelado');
-    await connection.commit();
-
-    res.json({ mensaje: MENSAJES_EXITO.PEDIDO_CANCELADO, pedido_id: id });
-
-  } catch (error) {
-    await connection.rollback();
-    next(error);
-  } finally {
-    connection.release();
-  }
-};
-
-const eliminar = async (req, res, next) => {
-  const connection = await pool.getConnection();
-
-  try {
-    const { id } = req.params;
-    await connection.beginTransaction();
-
-    const pedido = await pedidosModel.obtenerPorId(id);
-    if (!pedido) {
-      await connection.rollback();
-      return res.status(404).json({ error: 'Pedido no encontrado', mensaje: MENSAJES_ERROR.PEDIDO_NO_ENCONTRADO });
-    }
-
-    if (pedido.estado_general !== 'Cancelado') {
-      const items = pedido.items;
-      for (const item of items) {
-        if (item.estado !== 'Cancelado') {
-          const cantidad = parseInt(item.cantidad);
-
-          // 1. Devolver stock Producto
-          await connection.query('UPDATE productos SET stock = stock + ? WHERE id = ?', [cantidad, item.producto_id]);
-          
-          // 2. Devolver stock Acompañamiento (MODIFICADO - Misma lógica que cancelar)
-          if (item.acompanamiento_id) {
-             const [rows] = await connection.query(
-                'SELECT producto_vinculado_id FROM acompanamientos WHERE id = ?', 
-                [item.acompanamiento_id]
-             );
-             
-             if (rows.length > 0) {
-                const vinculadoId = rows[0].producto_vinculado_id;
-                if (vinculadoId) {
-                    await connection.query('UPDATE productos SET stock = stock + ? WHERE id = ?', [cantidad, vinculadoId]);
-                } else {
-                    await connection.query('UPDATE acompanamientos SET stock = stock + ? WHERE id = ?', [cantidad, item.acompanamiento_id]);
-                }
-             }
-          }
-        }
-      }
-    }
-
-    await connection.query('DELETE FROM pedidos_items WHERE pedido_id = ?', [id]);
-    await connection.query('DELETE FROM pedidos WHERE id = ?', [id]);
-
-    await connection.commit();
-    res.json({ mensaje: 'Registro eliminado y stock ajustado.', id_eliminado: id });
-
-  } catch (error) {
-    await connection.rollback();
-    next(error);
-  } finally {
-    connection.release();
   }
 };
 
