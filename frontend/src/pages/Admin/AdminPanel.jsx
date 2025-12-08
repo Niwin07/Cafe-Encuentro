@@ -12,9 +12,13 @@ const AdminPanel = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   
+  // Estados para los selectores
   const [auxCats, setAuxCats] = useState([]);
   const [auxDest, setAuxDest] = useState([]);
   const [auxAcomp, setAuxAcomp] = useState([]);
+  
+  // NUEVO: Estado para la lista de productos (para vincular stock)
+  const [listaProductos, setListaProductos] = useState([]); 
 
   const [nuevoAcompNombre, setNuevoAcompNombre] = useState('');
   const [nuevoAcompCategoria, setNuevoAcompCategoria] = useState('Bebida');
@@ -43,19 +47,20 @@ const AdminPanel = () => {
     } finally { setLoading(false); }
   };
 
-const cargarAuxiliares = async () => {
+  const cargarAuxiliares = async () => {
     try {
+      // MODIFICADO: Ahora cargamos también /productos para tener la lista de vinculación
       const [resCat, resDest, resAcomp, resProd] = await Promise.all([
         api.get('/categorias'),
         api.get('/destinos'),
         api.get('/acompanamientos'),
-        api.get('/productos') // Traemos productos para el select
+        api.get('/productos') 
       ]);
       setAuxCats(resCat.data);
       setAuxDest(resDest.data);
       setAuxAcomp(resAcomp.data);
-      // Necesitarás un estado nuevo: const [listaProductos, setListaProductos] = useState([]);
-      setListaProductos(resProd.data.productos || []); 
+      // Guardamos los productos en el nuevo estado
+      setListaProductos(resProd.data.productos || []);
     } catch (error) { console.error("Error cargando auxiliares:", error); }
   };
 
@@ -67,7 +72,7 @@ const cargarAuxiliares = async () => {
       const res = await api.post('/acompanamientos', {
         nombre: nuevoAcompNombre,
         categoria: nuevoAcompCategoria,
-        stock: 50 // Stock inicial por defecto al crear rápido
+        stock: 50 
       });
       const nuevoItem = { id: res.data.id, nombre: nuevoAcompNombre, categoria: nuevoAcompCategoria, stock: 50 };
       setAuxAcomp([...auxAcomp, nuevoItem]);
@@ -126,7 +131,11 @@ const cargarAuxiliares = async () => {
 
   const openModal = async (item = null) => {
     if (activeTab === 'cajeras' && item) { alert("⚠️ Edición de usuarios no disponible."); return; }
-    if (activeTab === 'productos') await cargarAuxiliares();
+    
+    // MODIFICADO: Cargamos auxiliares siempre que no sea cajeras, 
+    // para tener las listas listas (incluyendo productos para vincular)
+    if (activeTab !== 'cajeras') await cargarAuxiliares();
+    
     setEditingItem(item || {});
     setShowModal(true);
     setFiltroAcomp('');
@@ -167,12 +176,11 @@ const cargarAuxiliares = async () => {
               <thead>
                 <tr>
                   <th>Información</th>
-                  {/* Columnas dinámicas según tab */}
                   {activeTab === 'productos' && <th>Precio / Stock</th>}
                   {activeTab === 'productos' && <th>Categoría</th>}
                   
                   {activeTab === 'acompanamientos' && <th>Categoría</th>}
-                  {activeTab === 'acompanamientos' && <th>Stock</th>} {/* NUEVA COLUMNA */}
+                  {activeTab === 'acompanamientos' && <th>Stock</th>}
                   
                   {activeTab === 'cajeras' && <th>Usuario</th>}
                   <th style={{ textAlign: 'right' }}>Acciones</th>
@@ -182,7 +190,15 @@ const cargarAuxiliares = async () => {
                 {data.map(item => (
                   <tr key={item.id}>
                     <td>
-                      <div className="admin-item-nombre">{item.nombre}</div>
+                      <div className="admin-item-nombre">
+                        {item.nombre} 
+                        {/* Mostrar indicador si está vinculado */}
+                        {item.producto_vinculado_id && (
+                            <span style={{fontSize:'0.7rem', color:'#8b5a3c', marginLeft:'5px'}}>
+                                (🔗 Vinculado)
+                            </span>
+                        )}
+                      </div>
                       {item.descripcion && <div className="admin-item-desc">{item.descripcion}</div>}
                     </td>
                     
@@ -272,8 +288,10 @@ const cargarAuxiliares = async () => {
                         </select>
                       </div>
                     </div>
+                    
+                    {/* SECCIÓN OPCIONES (Solo creación rápida, la vinculación es para la otra pestaña) */}
                     <div className="admin-acomp-section">
-                      <label className="admin-form-label">🥄 Opciones</label>
+                      <label className="admin-form-label">🥄 Opciones / Acompañamientos</label>
                       <input placeholder="🔍 Buscar..." value={filtroAcomp} onChange={e => setFiltroAcomp(e.target.value)} className="admin-acomp-search" />
                       <div className="admin-acomp-grid">
                         {auxAcomp.filter(ac => ac.nombre.toLowerCase().includes(filtroAcomp.toLowerCase())).map(ac => {
@@ -286,48 +304,80 @@ const cargarAuxiliares = async () => {
                             )
                         })}
                       </div>
+                      
+                      <div style={{marginTop: '1rem', borderTop: '1px dashed #ccc', paddingTop: '0.5rem'}}>
+                        <small>¿No encuentras la opción? Créala rápido:</small>
+                        <div style={{display: 'flex', gap: '0.5rem', marginTop: '0.5rem'}}>
+                            <input 
+                                placeholder="Nombre (ej: Hielo)" 
+                                value={nuevoAcompNombre}
+                                onChange={e => setNuevoAcompNombre(e.target.value)}
+                                style={{flex: 1}}
+                            />
+                            <select 
+                                value={nuevoAcompCategoria}
+                                onChange={e => setNuevoAcompCategoria(e.target.value)}
+                                style={{width: '120px'}}
+                            >
+                                <option value="Bebida">Bebida</option>
+                                <option value="Extra">Extra</option>
+                                <option value="Comida">Comida</option>
+                            </select>
+                            <button 
+                                type="button" 
+                                onClick={handleQuickCreateAcomp}
+                                disabled={creandoAcomp || !nuevoAcompNombre}
+                                className="btn btn-sm btn-secondary"
+                            >
+                                {creandoAcomp ? '...' : 'Crear'}
+                            </button>
+                        </div>
+                      </div>
                     </div>
                   </>
                 )}
 
-                {/* ACOMPAÑAMIENTOS */}
+                {/* ACOMPAÑAMIENTOS (Aquí está la magia de vinculación) */}
                 {activeTab === 'acompanamientos' && (
                   <>
                     <div className="admin-form-row">
-                      <div className="admin-form-group">
-                          <label className="admin-form-label">Categoría</label>
-                          <select name="categoria" defaultValue={editingItem?.categoria} required>
+                        <div className="admin-form-group">
+                            <label className="admin-form-label">Categoría</label>
+                            <select name="categoria" defaultValue={editingItem?.categoria} required>
                             <option value="Bebida">Bebida</option>
                             <option value="Comida">Comida</option>
                             <option value="Extra">Extra</option>
                             <option value="Endulzante">Endulzante</option>
                             <option value="Otro">Otro</option>
-                          </select>
-                      </div>
-                      
-                      {/* Selector de Producto Vinculado */}
-                      <div className="admin-form-group">
-                          <label className="admin-form-label">🔗 Vincular Stock con Producto (Opcional)</label>
-                          <select 
-                            name="producto_vinculado_id" 
-                            defaultValue={editingItem?.producto_vinculado_id || ""}
-                            onChange={(e) => {
-                              // Pequeña lógica visual: si vincula producto, deshabilitar input de stock manual
-                              const inputStock = document.getElementById('input-stock-acomp');
-                              if (inputStock) inputStock.disabled = !!e.target.value;
-                            }}
-                          >
-                            <option value="">-- Sin vincular (Stock independiente) --</option>
-                            {/* Usamos auxAcomp que tiene productos si cargamos todo, 
-                                pero lo ideal es cargar productos en 'cargarAuxiliares' 
-                                aunque estemos en pestaña acompañamientos */}
-                            {/* Nota: Necesitas asegurarte de cargar los productos en cargarAuxiliares() */}
-                            {dataProductosParaSelect.map(p => (
-                              <option key={p.id} value={p.id}>{p.nombre} (Stock: {p.stock})</option>
-                            ))}
-                          </select>
-                          <small style={{fontSize:'0.7rem', color:'#666'}}>Si seleccionas uno, el stock se descontará de ese producto.</small>
-                      </div>
+                            </select>
+                        </div>
+                        
+                        {/* Selector de Producto Vinculado */}
+                        <div className="admin-form-group">
+                            <label className="admin-form-label">🔗 Vincular Stock (Opcional)</label>
+                            <select 
+                                name="producto_vinculado_id" 
+                                defaultValue={editingItem?.producto_vinculado_id || ""}
+                                onChange={(e) => {
+                                    // Deshabilitar input manual si se selecciona un producto
+                                    const inputStock = document.getElementById('input-stock-acomp');
+                                    if (inputStock) {
+                                        inputStock.disabled = !!e.target.value;
+                                        if (e.target.value) inputStock.value = ''; // Limpiar visualmente
+                                    }
+                                }}
+                            >
+                                <option value="">-- Sin vincular (Stock propio) --</option>
+                                {listaProductos.map(p => (
+                                    <option key={p.id} value={p.id}>
+                                        {p.nombre} (Stock: {p.stock})
+                                    </option>
+                                ))}
+                            </select>
+                            <small style={{fontSize:'0.7rem', color:'#666', marginTop:'2px'}}>
+                                Si vinculas, se descontará del stock del producto elegido.
+                            </small>
+                        </div>
                     </div>
 
                     <div className="admin-form-group">
@@ -337,11 +387,12 @@ const cargarAuxiliares = async () => {
                             name="stock" 
                             type="number" 
                             defaultValue={editingItem?.stock || 0} 
-                            disabled={!!editingItem?.producto_vinculado_id} // Deshabilitar si ya está vinculado
+                            disabled={!!editingItem?.producto_vinculado_id} // Deshabilitar si ya tiene vínculo
                         />
                     </div>
                   </>
                 )}
+
                 {/* CAJERAS */}
                 {activeTab === 'cajeras' && (
                   <>
