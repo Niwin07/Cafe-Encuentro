@@ -17,20 +17,29 @@ const ModalProducto = ({ producto, onClose, onConfirm }) => {
 
   const opcionesDisponibles = producto.acompanamientos || [];
 
+  // Buscar objeto completo del acompañamiento seleccionado
+  const acompSeleccionado = opcionesDisponibles.find(op => op.id.toString() === acompanamientoId.toString());
+
+  // Validación de Stock Combinada
+  const stockInsuficienteAcomp = acompSeleccionado && acompSeleccionado.stock < cantidad;
+
   const handleConfirm = () => {
     if (cantidad > producto.stock) {
-      alert(`⚠️ Stock insuficiente. Solo hay ${producto.stock} disponibles.`);
+      alert(`⚠️ Stock insuficiente del producto principal. Solo hay ${producto.stock}.`);
       return;
     }
 
-    const nombreAcomp = opcionesDisponibles.find(a => a.id == acompanamientoId)?.nombre;
-    
+    if (stockInsuficienteAcomp) {
+        alert(`⚠️ Stock insuficiente de "${acompSeleccionado.nombre}". Solo hay ${acompSeleccionado.stock} unidades.`);
+        return;
+    }
+
     onConfirm({
       ...producto,
       cantidad,
       instrucciones_especiales: nota,
       acompanamiento_id: acompanamientoId || null,
-      acompanamiento_nombre: nombreAcomp
+      acompanamiento_nombre: acompSeleccionado?.nombre
     });
     
     onClose();
@@ -52,135 +61,102 @@ const ModalProducto = ({ producto, onClose, onConfirm }) => {
 
   return (
     <>
-      {/* Overlay */}
       <div className="modal-overlay" onClick={onClose} />
-      
-      {/* Modal */}
       <div className="modal-container animate-fade-in">
         <div className="modal-content">
           
-          {/* Header */}
           <div className="modal-header">
             <div>
               <h3 className="modal-titulo">{producto.nombre}</h3>
-              {producto.descripcion && (
-                <p className="modal-descripcion">{producto.descripcion}</p>
-              )}
+              {producto.descripcion && <p className="modal-descripcion">{producto.descripcion}</p>}
             </div>
-            <button 
-              onClick={onClose} 
-              className="modal-btn-cerrar"
-              aria-label="Cerrar"
-            >
-              ✕
-            </button>
+            <button onClick={onClose} className="modal-btn-cerrar">✕</button>
           </div>
 
-          {/* Body */}
           <div className="modal-body">
-            
-            {/* Precio */}
             <div className="modal-precio-section">
               <span className="modal-precio-label">Precio unitario</span>
               <span className="modal-precio">${producto.precio}</span>
             </div>
 
-            {/* Cantidad */}
             <div className="modal-section">
               <label className="modal-label">Cantidad</label>
               <div className="cantidad-selector">
-                <button 
-                  onClick={decrementar}
-                  disabled={cantidad <= 1}
-                  className="btn-cantidad"
-                  aria-label="Disminuir"
-                >
-                  −
-                </button>
+                <button onClick={decrementar} disabled={cantidad <= 1} className="btn-cantidad">−</button>
                 <input 
                   type="number" 
-                  min="1" 
-                  max={producto.stock}
+                  readOnly 
                   value={cantidad} 
-                  onChange={e => {
-                    const val = parseInt(e.target.value) || 1;
-                    if (val >= 1 && val <= producto.stock) {
-                      setCantidad(val);
-                    }
-                  }}
                   className="cantidad-input"
                 />
-                <button 
-                  onClick={incrementar}
-                  disabled={cantidad >= producto.stock}
-                  className="btn-cantidad"
-                  aria-label="Aumentar"
-                >
-                  +
-                </button>
+                <button onClick={incrementar} disabled={cantidad >= producto.stock} className="btn-cantidad">+</button>
               </div>
               <small className={`modal-stock ${producto.stock < 5 ? 'stock-bajo' : ''}`}>
-                {producto.stock < 5 ? '⚠️' : '✓'} Stock disponible: <strong>{producto.stock}</strong>
+                {producto.stock < 5 ? '⚠️' : '✓'} Stock producto: <strong>{producto.stock}</strong>
               </small>
             </div>
 
-            {/* Acompañamientos */}
+            {/* SECCIÓN ACOMPAÑAMIENTOS MEJORADA */}
             {opcionesDisponibles.length > 0 && (
               <div className="modal-section">
                 <label className="modal-label">
-                  🥄 Acompañamiento / Opción
+                  🥄 Acompañamiento (Opcional)
                 </label>
                 <select 
                   value={acompanamientoId} 
                   onChange={e => setAcompanamientoId(e.target.value)}
                   className="modal-select"
+                  style={{ 
+                    borderColor: stockInsuficienteAcomp ? 'var(--error)' : 'var(--border-light)' 
+                  }}
                 >
-                  <option value="">-- Sin acompañamiento --</option>
-                  {opcionesDisponibles.map(op => (
-                    <option key={op.id} value={op.id}>
-                      {op.nombre} {op.categoria && `(${op.categoria})`}
-                    </option>
-                  ))}
+                  <option value="">-- Ninguno --</option>
+                  {opcionesDisponibles.map(op => {
+                    const disabled = op.stock < cantidad; // Deshabilitar si no alcanza para la cantidad actual
+                    return (
+                        <option key={op.id} value={op.id} disabled={op.stock <= 0}>
+                        {op.nombre} {op.categoria ? `(${op.categoria})` : ''} - [Stock: {op.stock}] {disabled && '(Insuficiente)'}
+                        </option>
+                    )
+                  })}
                 </select>
+                
+                {/* Mensaje de error de stock de acompañamiento */}
+                {stockInsuficienteAcomp && (
+                    <small style={{ color: 'var(--error)', marginTop: '0.25rem', display: 'block', fontWeight: '600' }}>
+                        ⚠️ Solo quedan {acompSeleccionado.stock} unidades de este acompañamiento.
+                    </small>
+                )}
+                <small className="modal-hint">
+                    Nota: Se descontará 1 unidad de acompañamiento por cada unidad de producto principal ({cantidad}).
+                </small>
               </div>
             )}
 
-            {/* Notas */}
             <div className="modal-section">
-              <label className="modal-label">
-                📝 Instrucciones especiales (opcional)
-              </label>
+              <label className="modal-label">📝 Notas especiales</label>
               <textarea 
                 rows="3" 
-                placeholder='Ej: "Sin azúcar", "Extra caliente", "Poco hielo"...'
+                placeholder='Ej: "Sin azúcar", "Tibio", etc.'
                 value={nota}
                 onChange={e => setNota(e.target.value)}
                 className="modal-textarea"
                 maxLength={200}
               />
-              <small className="modal-hint">
-                {nota.length}/200 caracteres
-              </small>
             </div>
           </div>
 
-          {/* Footer */}
           <div className="modal-footer">
             <div className="modal-subtotal">
               <span>Subtotal:</span>
               <span className="modal-subtotal-precio">${subtotal}</span>
             </div>
             <div className="modal-actions">
-              <button 
-                onClick={onClose} 
-                className="btn btn-secondary modal-btn-cancelar"
-              >
-                Cancelar
-              </button>
+              <button onClick={onClose} className="btn btn-secondary modal-btn-cancelar">Cancelar</button>
               <button 
                 onClick={handleConfirm} 
                 className="btn btn-primary modal-btn-agregar"
-                disabled={cantidad > producto.stock}
+                disabled={cantidad > producto.stock || stockInsuficienteAcomp} // Bloquea botón
               >
                 ➕ Agregar al Pedido
               </button>

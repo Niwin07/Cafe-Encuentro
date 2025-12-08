@@ -36,23 +36,28 @@ const crear = async (req, res, next) => {
     const productosValidados = [];
     
     for (const item of items) {
+      // Asegurar que cantidad es número
+      const cantidad = parseInt(item.cantidad);
+      const prodId = parseInt(item.producto_id);
+      // Validar si viene un ID de acompañamiento válido (distinto de nulo, undefined o "")
+      const acompId = item.acompanamiento_id ? parseInt(item.acompanamiento_id) : null;
+
       // 1. Validar Producto Principal
-      const producto = await productosModel.obtenerPorId(item.producto_id);
+      const producto = await productosModel.obtenerPorId(prodId);
       
       if (!producto || !producto.activo) {
         await connection.rollback();
-        return res.status(400).json({ error: 'Producto no disponible', mensaje: `El producto con ID ${item.producto_id} no está disponible` });
+        return res.status(400).json({ error: 'Producto no disponible', mensaje: `El producto con ID ${prodId} no está disponible` });
       }
 
-      if (!validarStock(producto.stock, item.cantidad)) {
+      if (!validarStock(producto.stock, cantidad)) {
         await connection.rollback();
         return res.status(400).json({ error: 'Stock insuficiente', mensaje: `Stock insuficiente para "${producto.nombre}"` });
       }
 
-      // 2. Validar Acompañamiento (NUEVO)
-      if (item.acompanamiento_id) {
-        // Usamos una query directa dentro de la transacción para asegurar consistencia o usamos el modelo
-        const [acompRows] = await connection.query('SELECT * FROM acompanamientos WHERE id = ?', [item.acompanamiento_id]);
+      // 2. Validar Acompañamiento
+      if (acompId) {
+        const [acompRows] = await connection.query('SELECT * FROM acompanamientos WHERE id = ?', [acompId]);
         const acomp = acompRows[0];
 
         if (!acomp || !acomp.activo) {
@@ -60,17 +65,19 @@ const crear = async (req, res, next) => {
              return res.status(400).json({ error: 'Acompañamiento no disponible', mensaje: 'El acompañamiento seleccionado no existe o no está activo' });
         }
 
-        // Validamos stock del acompañamiento (se descuenta la misma cantidad que el producto principal)
-        if (acomp.stock < item.cantidad) {
+        // Validamos stock del acompañamiento
+        if (acomp.stock < cantidad) {
             await connection.rollback();
-            return res.status(400).json({ error: 'Stock insuficiente', mensaje: `No hay suficiente stock de "${acomp.nombre}"` });
+            return res.status(400).json({ error: 'Stock insuficiente', mensaje: `No hay suficiente stock de "${acomp.nombre}" (Disponibles: ${acomp.stock})` });
         }
       }
 
       productosValidados.push({
         ...item,
+        cantidad, // Usar la cantidad parseada
+        acompanamiento_id: acompId, // Usar ID parseado
         producto,
-        subtotal: calcularSubtotal(producto.precio, item.cantidad)
+        subtotal: calcularSubtotal(producto.precio, cantidad)
       });
     }
 
@@ -88,20 +95,20 @@ const crear = async (req, res, next) => {
     for (const item of productosValidados) {
       await pedidosModel.crearItem({
         pedido_id: pedidoId,
-        producto_id: item.producto_id,
+        producto_id: item.producto.id,
         cantidad: item.cantidad,
         precio_unitario: item.producto.precio,
         subtotal: item.subtotal,
-        acompanamiento_id: item.acompanamiento_id || null,
+        acompanamiento_id: item.acompanamiento_id,
         instrucciones_especiales: item.instrucciones_especiales || null,
         estado: 'Pendiente',
         destino_id: item.producto.destino_id
       });
 
       // Actualizar Stock Producto
-      await connection.query('UPDATE productos SET stock = stock - ? WHERE id = ?', [item.cantidad, item.producto_id]);
+      await connection.query('UPDATE productos SET stock = stock - ? WHERE id = ?', [item.cantidad, item.producto.id]);
 
-      // Actualizar Stock Acompañamiento (NUEVO)
+      // Actualizar Stock Acompañamiento (Asegurado)
       if (item.acompanamiento_id) {
         await connection.query('UPDATE acompanamientos SET stock = stock - ? WHERE id = ?', [item.cantidad, item.acompanamiento_id]);
       }
@@ -375,15 +382,19 @@ const cancelar = async (req, res, next) => {
         return res.status(400).json({ error: 'Acción no permitida', mensaje: 'El pedido ya fue completado o cancelado' });
     }
 
+    // Filtramos items que no estén ya cancelados/entregados
     const items = pedido.items.filter(item => item.estado !== 'Entregado' && item.estado !== 'Cancelado');
 
     for (const item of items) {
-      // Devolver stock Producto
-      await connection.query('UPDATE productos SET stock = stock + ? WHERE id = ?', [item.cantidad, item.producto_id]);
+      const cantidad = parseInt(item.cantidad);
+      const acompId = item.acompanamiento_id ? parseInt(item.acompanamiento_id) : null;
 
-      // Devolver stock Acompañamiento (NUEVO)
-      if (item.acompanamiento_id) {
-        await connection.query('UPDATE acompanamientos SET stock = stock + ? WHERE id = ?', [item.cantidad, item.acompanamiento_id]);
+      // Devolver stock Producto
+      await connection.query('UPDATE productos SET stock = stock + ? WHERE id = ?', [cantidad, item.producto_id]);
+
+      // Devolver stock Acompañamiento (CORREGIDO: asegura que acompId existe)
+      if (acompId) {
+        await connection.query('UPDATE acompanamientos SET stock = stock + ? WHERE id = ?', [cantidad, acompId]);
       }
 
       await pedidosModel.actualizarEstadoItem(item.id, 'Cancelado');
