@@ -38,6 +38,19 @@ const MenuCajera = () => {
   };
 
   const agregarAlCarrito = (itemConfigurado) => {
+    // Buscamos si el acompañamiento seleccionado tiene un producto vinculado
+    let prodVinculadoId = null;
+    if (itemConfigurado.acompanamiento_id) {
+        // Buscamos en el array de acompañamientos del producto original
+        // (Nota: itemConfigurado es una copia, pero viene de productoSeleccionado)
+        const acompOriginal = itemConfigurado.acompanamientos?.find(
+            a => a.id.toString() === itemConfigurado.acompanamiento_id.toString()
+        );
+        if (acompOriginal) {
+            prodVinculadoId = acompOriginal.producto_vinculado_id;
+        }
+    }
+
     const itemCart = {
       tempId: Date.now(),
       id: itemConfigurado.id,
@@ -46,14 +59,14 @@ const MenuCajera = () => {
       cantidad: itemConfigurado.cantidad,
       acompanamiento_id: itemConfigurado.acompanamiento_id,
       acompanamiento_nombre: itemConfigurado.acompanamiento_nombre,
+      // GUARDAMOS ESTO PARA EL CÁLCULO DE STOCK LOCAL
+      acompanamiento_vinculado_id: prodVinculadoId, 
       notas: itemConfigurado.instrucciones_especiales,
       destino_id: itemConfigurado.destino.id
     };
+    
     setCarrito([...carrito, itemCart]);
-    // En móvil, cambiar automáticamente a la pestaña del carrito
-    if (window.innerWidth < 1024) {
-      setTabActiva('carrito');
-    }
+    if (window.innerWidth < 1024) setTabActiva('carrito');
   };
 
   const eliminarDelCarrito = (tempId) => {
@@ -335,6 +348,7 @@ const MenuCajera = () => {
       {productoSeleccionado && (
         <ModalProducto 
           producto={productoSeleccionado} 
+          carrito={carrito} // <--- AGREGAR ESTA PROP
           onClose={() => setProductoSeleccionado(null)} 
           onConfirm={agregarAlCarrito} 
         />
