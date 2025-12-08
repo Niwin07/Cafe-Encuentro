@@ -435,25 +435,49 @@
 
   /* Ajustes carrito móvil para ganar espacio */
   .pos-carrito-header {
-    padding: 0.75rem 1rem;
+    padding: 1rem;
   }
   
   .pos-carrito-header h3 {
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
     font-size: 1.125rem;
+  }
+  
+  /* Input de cliente más visible en móvil */
+  .pos-carrito-header input {
+    font-size: 1rem;
+    padding: 0.75rem;
   }
 
   .pos-carrito-items {
     padding: 0.75rem;
+    /* Asegurar que tome el espacio disponible */
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
   }
 
   .pos-carrito-footer {
-    padding: 1rem;
+    padding: 1.25rem;
   }
 
   .carrito-total {
-    font-size: 1.25rem;
-    margin-bottom: 0.75rem;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  /* Items del carrito más compactos en móvil */
+  .carrito-item {
+    padding: 0.875rem;
+    gap: 0.75rem;
+  }
+  
+  .carrito-item-cantidad {
+    font-size: 1rem;
+  }
+  
+  .carrito-item-precio {
+    font-size: 1.1rem;
   }
   
   /* Lógica de Tabs Móviles - CORREGIDA */
@@ -484,6 +508,13 @@
     height: 100%; /* CLAVE: Ocupar todo el espacio disponible */
     overflow: hidden;
     min-height: 0;
+  }
+  
+  /* CRÍTICO: Asegurar que el carrito activo en móvil funcione correctamente */
+  .pos-carrito.active {
+    border-left: none;
+    border-top: none;
+    max-height: none; /* Eliminar la restricción de tablet */
   }
 }
 
