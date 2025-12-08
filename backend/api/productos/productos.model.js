@@ -95,7 +95,7 @@ const obtenerPorId = async (id) => {
 };
 
 /**
- * Obtener acompañamientos de un producto
+ * Obtener acompañamientos de un producto (CORREGIDO PARA STOCK VINCULADO)
  */
 const obtenerAcompanamientos = async (productoId) => {
   const query = `
@@ -103,10 +103,14 @@ const obtenerAcompanamientos = async (productoId) => {
       a.id,
       a.nombre,
       a.categoria,
-      a.stock,  
-      a.activo
+      a.activo,
+      a.producto_vinculado_id,
+      -- MAGIA AQUÍ: Si tiene producto vinculado, usamos SU stock. Si no, el del acompañamiento.
+      COALESCE(p_link.stock, a.stock) as stock
     FROM acompanamientos a
     INNER JOIN productos_acompanamientos pa ON a.id = pa.acompanamiento_id
+    -- Hacemos JOIN con productos para leer el stock vinculado si existe
+    LEFT JOIN productos p_link ON a.producto_vinculado_id = p_link.id
     WHERE pa.producto_id = ? AND a.activo = TRUE
     ORDER BY a.categoria, a.nombre
   `;
@@ -316,6 +320,5 @@ module.exports = {
   eliminarPermanente,
   asignarAcompanamientos,
   existe,
-  obtenerConStockBajo,
-  eliminarPermanente
+  obtenerConStockBajo
 };
