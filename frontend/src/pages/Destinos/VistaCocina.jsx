@@ -2,16 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import api from '../../services/api';
 import './VistaCocina.css';
 
-// Animación para el botón flotante (CSS en JS)
-const styleSheet = document.styleSheets[0];
-try {
-    styleSheet.insertRule(`
-      @keyframes pulse-button {
-        0%, 100% { transform: scale(1); box-shadow: 0 8px 25px rgba(255, 61, 0, 0.5); }
-        50% { transform: scale(1.05); box-shadow: 0 12px 35px rgba(255, 61, 0, 0.8); }
-      }
-    `, styleSheet.cssRules.length);
-} catch (e) {}
+
 
 const VistaCocina = () => {
   const [pedidos, setPedidos] = useState({});
@@ -138,37 +129,11 @@ const VistaCocina = () => {
   return (
     <div className="cocina-container">
       
-      {/* Botón flotante para activar sonido */}
       {!permisoSonido && (
-        <div style={{
-          position: 'fixed',
-          top: '20px',
-          right: '20px',
-          zIndex: 9999,
-          animation: 'pulse-button 2s infinite'
-        }}>
-          <button 
-            onClick={activarSonido} 
-            style={{
-              padding: '14px 28px',
-              background: 'linear-gradient(135deg, #ff3d00, #ff6b35)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '50px',
-              fontSize: '1rem',
-              fontWeight: '800',
-              cursor: 'pointer',
-              boxShadow: '0 8px 25px rgba(255, 61, 0, 0.5)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              textTransform: 'uppercase'
-            }}
-          >
-            <span style={{fontSize: '1.3em'}}>🔔</span>
-            <span>Activar Sonido</span>
-          </button>
-        </div>
+        <button className="btn-sound-floating" onClick={activarSonido}>
+          <span style={{ fontSize: '1.2rem' }}>🔔</span>
+          Activar Avisos
+        </button>
       )}
       
       {/* HEADER */}

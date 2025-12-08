@@ -6,26 +6,21 @@ const obtenerTodos = async () => {
   return rows;
 };
 
-const crear = async (nombre, categoria) => {
+const crear = async (nombre, categoria, stock = 0) => {
   const query = `
-    INSERT INTO acompanamientos (nombre, categoria, activo)
-    VALUES (?, ?, 1)
+    INSERT INTO acompanamientos (nombre, categoria, stock, activo)
+    VALUES (?, ?, ?, 1)
   `;
-
-  const [result] = await pool.query(query, [nombre, categoria]);
+  const [result] = await pool.query(query, [nombre, categoria, stock]);
   return result.insertId;
 };
 
-
-// ... imports ...
-
 // AGREGAR ESTA FUNCIÓN DE ACTUALIZAR
-const actualizar = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    await destinosModel.actualizar(id, req.body);
-    res.json({ mensaje: 'Actualizado correctamente' });
-  } catch (error) { next(error); }
+const actualizar = async (id, datos) => {
+  const campos = Object.keys(datos).map(key => `${key} = ?`).join(', ');
+  const valores = [...Object.values(datos), id];
+  const [result] = await pool.query(`UPDATE acompanamientos SET ${campos} WHERE id = ?`, valores);
+  return result.affectedRows > 0;
 };
 
 // MODIFICAR ELIMINAR

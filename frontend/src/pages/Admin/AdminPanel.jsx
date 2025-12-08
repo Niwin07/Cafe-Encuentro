@@ -22,9 +22,7 @@ const AdminPanel = () => {
 
   const [filtroAcomp, setFiltroAcomp] = useState('');
 
-  useEffect(() => {
-    cargarDatos();
-  }, [activeTab]);
+  useEffect(() => { cargarDatos(); }, [activeTab]);
 
   const cargarDatos = async () => {
     setLoading(true);
@@ -42,9 +40,7 @@ const AdminPanel = () => {
     } catch (error) {
       console.error(error);
       alert('Error cargando datos: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const cargarAuxiliares = async () => {
@@ -57,47 +53,34 @@ const AdminPanel = () => {
       setAuxCats(resCat.data);
       setAuxDest(resDest.data);
       setAuxAcomp(resAcomp.data);
-    } catch (error) {
-      console.error("Error cargando auxiliares:", error);
-    }
+    } catch (error) { console.error("Error cargando auxiliares:", error); }
   };
 
   const handleQuickCreateAcomp = async (e) => {
     e.preventDefault();
     if (!nuevoAcompNombre.trim()) return;
-
     setCreandoAcomp(true);
     try {
       const res = await api.post('/acompanamientos', {
         nombre: nuevoAcompNombre,
-        categoria: nuevoAcompCategoria
+        categoria: nuevoAcompCategoria,
+        stock: 50 // Stock inicial por defecto al crear rápido
       });
-
-      const nuevoItem = { id: res.data.id, nombre: nuevoAcompNombre, categoria: nuevoAcompCategoria };
+      const nuevoItem = { id: res.data.id, nombre: nuevoAcompNombre, categoria: nuevoAcompCategoria, stock: 50 };
       setAuxAcomp([...auxAcomp, nuevoItem]);
-
       if (editingItem) {
         const actuales = editingItem.acompanamientos || [];
-        setEditingItem({
-          ...editingItem,
-          acompanamientos: [...actuales, nuevoItem]
-        });
+        setEditingItem({ ...editingItem, acompanamientos: [...actuales, nuevoItem] });
       }
-
       setNuevoAcompNombre('');
-      alert('✨ Opción creada y asignada!');
-    } catch (error) {
-      alert('Error: ' + error.message);
-    } finally {
-      setCreandoAcomp(false);
-    }
+      alert('✨ Opción creada!');
+    } catch (error) { alert('Error: ' + error.message); } finally { setCreandoAcomp(false); }
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
     const form = e.target;
     const formData = new FormData(form);
-    
     const payload = {};
     const acompIds = [];
 
@@ -109,9 +92,7 @@ const AdminPanel = () => {
         }
     }
     
-    if (activeTab === 'productos') {
-        payload.acompanamientos_ids = acompIds;
-    }
+    if (activeTab === 'productos') payload.acompanamientos_ids = acompIds;
 
     try {
       if (activeTab === 'cajeras') {
@@ -123,7 +104,6 @@ const AdminPanel = () => {
           await api.post(`/${activeTab}`, payload);
         }
       }
-      
       alert('✅ Guardado correctamente');
       setShowModal(false);
       cargarDatos();
@@ -133,27 +113,16 @@ const AdminPanel = () => {
   };
 
   const handleDelete = async (id) => {
-    if (activeTab === 'cajeras') {
-        alert("⚠️ Por seguridad, no se pueden eliminar cajeras desde aquí.");
-        return;
-    }
-
+    if (activeTab === 'cajeras') { alert("⚠️ No se pueden eliminar cajeras desde aquí."); return; }
     if (!confirm('¿Seguro de eliminar este elemento?')) return;
-    
     try {
       await api.delete(`/${activeTab}/${id}`);
       cargarDatos();
-    } catch (error) {
-      alert('Error al eliminar');
-    }
+    } catch (error) { alert('Error al eliminar'); }
   };
 
   const openModal = async (item = null) => {
-    if (activeTab === 'cajeras' && item) {
-        alert("⚠️ La edición de usuarios no está disponible en este panel.");
-        return;
-    }
-
+    if (activeTab === 'cajeras' && item) { alert("⚠️ Edición de usuarios no disponible."); return; }
     if (activeTab === 'productos') await cargarAuxiliares();
     setEditingItem(item || {});
     setShowModal(true);
@@ -170,59 +139,38 @@ const AdminPanel = () => {
 
   return (
     <div className="admin-container">
-      
-      {/* HEADER */}
       <div className="admin-header">
         <div className="admin-header-content">
-          <h2>
-            <span>⚙️</span>
-            Panel de Administración
-          </h2>
-          <button onClick={() => setLocation('/pedidos')} className="btn admin-btn-volver">
-            ⬅️ Volver a Caja
-          </button>
+          <h2><span>⚙️</span> Panel de Administración</h2>
+          <button onClick={() => setLocation('/pedidos')} className="btn admin-btn-volver">⬅️ Volver a Caja</button>
         </div>
       </div>
 
-      {/* TABS */}
       <div className="admin-tabs">
         {tabs.map(tab => (
-          <button 
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}
-          >
-            {tab.label}
-          </button>
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}>{tab.label}</button>
         ))}
       </div>
 
-      {/* CONTENIDO */}
       <div className="admin-content">
         <div className="admin-content-header">
           <h3>Gestionar {activeTab}</h3>
-          <button onClick={() => openModal()} className="btn btn-success">
-            ➕ Nuevo
-          </button>
+          <button onClick={() => openModal()} className="btn btn-success">➕ Nuevo</button>
         </div>
 
-        {loading ? (
-          <div className="admin-loading">
-            <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
-            <p>Cargando datos...</p>
-          </div>
-        ) : (
+        {loading ? <div className="admin-loading"><p>Cargando datos...</p></div> : (
           <div className="admin-table-container animate-fade-in">
             <table className="admin-table">
               <thead>
                 <tr>
                   <th>Información</th>
-                  {activeTab === 'productos' && (
-                    <>
-                      <th>Precio / Stock</th>
-                      <th>Categoría</th>
-                    </>
-                  )}
+                  {/* Columnas dinámicas según tab */}
+                  {activeTab === 'productos' && <th>Precio / Stock</th>}
+                  {activeTab === 'productos' && <th>Categoría</th>}
+                  
+                  {activeTab === 'acompanamientos' && <th>Categoría</th>}
+                  {activeTab === 'acompanamientos' && <th>Stock</th>} {/* NUEVA COLUMNA */}
+                  
                   {activeTab === 'cajeras' && <th>Usuario</th>}
                   <th style={{ textAlign: 'right' }}>Acciones</th>
                 </tr>
@@ -232,9 +180,7 @@ const AdminPanel = () => {
                   <tr key={item.id}>
                     <td>
                       <div className="admin-item-nombre">{item.nombre}</div>
-                      {item.descripcion && (
-                        <div className="admin-item-desc">{item.descripcion}</div>
-                      )}
+                      {item.descripcion && <div className="admin-item-desc">{item.descripcion}</div>}
                     </td>
                     
                     {activeTab === 'productos' && (
@@ -242,31 +188,30 @@ const AdminPanel = () => {
                         <td>
                           <div className="admin-precio-stock">
                             <span className="admin-precio">${item.precio}</span>
-                            <span className={`admin-stock ${item.stock < 5 ? 'bajo' : 'ok'}`}>
-                              Stock: {item.stock}
-                            </span>
+                            <span className={`admin-stock ${item.stock < 5 ? 'bajo' : 'ok'}`}>Stock: {item.stock}</span>
                           </div>
                         </td>
                         <td>{item.categoria_nombre}</td>
                       </>
                     )}
 
-                    {activeTab === 'cajeras' && (
-                      <td style={{ color: 'var(--text-muted)' }}>@{item.usuario}</td>
+                    {activeTab === 'acompanamientos' && (
+                      <>
+                        <td>{item.categoria}</td>
+                        <td>
+                           <span className={`admin-stock ${item.stock < 10 ? 'bajo' : 'ok'}`}>
+                              {item.stock} u.
+                           </span>
+                        </td>
+                      </>
                     )}
+
+                    {activeTab === 'cajeras' && <td style={{ color: 'var(--text-muted)' }}>@{item.usuario}</td>}
 
                     <td>
                       <div className="admin-actions">
-                        {activeTab !== 'cajeras' && (
-                          <button onClick={() => openModal(item)} className="btn admin-btn-editar">
-                            ✏️ Editar
-                          </button>
-                        )}
-                        {activeTab !== 'cajeras' && (
-                          <button onClick={() => handleDelete(item.id)} className="btn btn-danger admin-btn-eliminar">
-                            🗑️
-                          </button>
-                        )}
+                        {activeTab !== 'cajeras' && <button onClick={() => openModal(item)} className="btn admin-btn-editar">✏️ Editar</button>}
+                        {activeTab !== 'cajeras' && <button onClick={() => handleDelete(item.id)} className="btn btn-danger admin-btn-eliminar">🗑️</button>}
                       </div>
                     </td>
                   </tr>
@@ -277,15 +222,12 @@ const AdminPanel = () => {
         )}
       </div>
 
-      {/* MODAL */}
       {showModal && (
         <div className="admin-modal-overlay" onClick={() => setShowModal(false)}>
           <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
-            
             <div className="admin-modal-header">
-              <h3>{editingItem.id ? 'Editar' : 'Crear'} {activeTab === 'cajeras' ? 'Cajera' : activeTab.slice(0, -1)}</h3>
+              <h3>{editingItem.id ? 'Editar' : 'Crear'} {activeTab}</h3>
             </div>
-
             <div className="admin-modal-body">
               <form onSubmit={handleSave} className="admin-form">
                 
@@ -294,28 +236,13 @@ const AdminPanel = () => {
                   <input name="nombre" defaultValue={editingItem?.nombre} required />
                 </div>
 
-                {activeTab === 'cajeras' && (
-                  <>
-                    <div className="admin-form-group">
-                      <label className="admin-form-label">Usuario (Login)</label>
-                      <input name="usuario" required placeholder="Ej: cajera1" />
-                    </div>
-                    <div className="admin-form-group">
-                      <label className="admin-form-label">Contraseña</label>
-                      <input name="password" type="password" required minLength="6" />
-                    </div>
-                  </>
-                )}
-
-                {activeTab !== 'cajeras' && activeTab !== 'acompanamientos' && (
-                  <div className="admin-form-group">
-                    <label className="admin-form-label">Descripción</label>
-                    <textarea name="descripcion" defaultValue={editingItem?.descripcion} rows="3" />
-                  </div>
-                )}
-
+                {/* PRODUCTOS */}
                 {activeTab === 'productos' && (
                   <>
+                    <div className="admin-form-group">
+                        <label className="admin-form-label">Descripción</label>
+                        <textarea name="descripcion" defaultValue={editingItem?.descripcion} rows="3" />
+                    </div>
                     <div className="admin-form-row">
                       <div className="admin-form-group">
                         <label className="admin-form-label">💵 Precio</label>
@@ -326,7 +253,6 @@ const AdminPanel = () => {
                         <input name="stock" type="number" defaultValue={editingItem?.stock} required />
                       </div>
                     </div>
-
                     <div className="admin-form-row">
                       <div className="admin-form-group">
                         <label className="admin-form-label">🏷️ Categoría</label>
@@ -343,54 +269,16 @@ const AdminPanel = () => {
                         </select>
                       </div>
                     </div>
-
                     <div className="admin-acomp-section">
-                      <label className="admin-form-label">🥄 Opciones / Acompañamientos</label>
-
-                      <div className="admin-acomp-quick-create">
-                        <input 
-                          placeholder="Nueva opción..." 
-                          value={nuevoAcompNombre}
-                          onChange={e => setNuevoAcompNombre(e.target.value)}
-                          style={{ flex: 2 }}
-                        />
-                        <select 
-                          value={nuevoAcompCategoria}
-                          onChange={e => setNuevoAcompCategoria(e.target.value)}
-                          style={{ flex: 1 }}
-                        >
-                          <option value="Bebida">Bebida</option>
-                          <option value="Comida">Comida</option>
-                          <option value="Extra">Extra</option>
-                          <option value="Endulzante">Endulzante</option>
-                        </select>
-                        <button type="button" onClick={handleQuickCreateAcomp} disabled={creandoAcomp} className="btn btn-sm" style={{ background: 'var(--success)' }}>
-                          {creandoAcomp ? '...' : 'Crear'}
-                        </button>
-                      </div>
-
-                      <input 
-                        placeholder="🔍 Buscar..." 
-                        value={filtroAcomp}
-                        onChange={e => setFiltroAcomp(e.target.value)}
-                        className="admin-acomp-search"
-                      />
-
+                      <label className="admin-form-label">🥄 Opciones</label>
+                      <input placeholder="🔍 Buscar..." value={filtroAcomp} onChange={e => setFiltroAcomp(e.target.value)} className="admin-acomp-search" />
                       <div className="admin-acomp-grid">
-                        {auxAcomp
-                          .filter(ac => ac.nombre.toLowerCase().includes(filtroAcomp.toLowerCase()))
-                          .map(ac => {
+                        {auxAcomp.filter(ac => ac.nombre.toLowerCase().includes(filtroAcomp.toLowerCase())).map(ac => {
                             const isChecked = editingItem?.acompanamientos?.some(a => a.id === ac.id);
                             return (
                               <label key={ac.id} className={`admin-acomp-checkbox ${isChecked ? 'checked' : ''}`}>
-                                <input 
-                                  type="checkbox" 
-                                  name="acompanamientos" 
-                                  value={ac.id} 
-                                  defaultChecked={isChecked} 
-                                />
-                                {ac.nombre}
-                                <span className="admin-acomp-cat">({ac.categoria})</span>
+                                <input type="checkbox" name="acompanamientos" value={ac.id} defaultChecked={isChecked} />
+                                {ac.nombre} <span className="admin-acomp-cat">({ac.stock})</span>
                               </label>
                             )
                         })}
@@ -399,25 +287,42 @@ const AdminPanel = () => {
                   </>
                 )}
 
+                {/* ACOMPAÑAMIENTOS */}
                 {activeTab === 'acompanamientos' && (
-                  <div className="admin-form-group">
-                    <label className="admin-form-label">Categoría</label>
-                    <select name="categoria" defaultValue={editingItem?.categoria} required>
-                      <option value="Bebida">Bebida</option>
-                      <option value="Comida">Comida</option>
-                      <option value="Extra">Extra</option>
-                      <option value="Endulzante">Endulzante</option>
-                    </select>
+                  <div className="admin-form-row">
+                    <div className="admin-form-group">
+                        <label className="admin-form-label">Categoría</label>
+                        <select name="categoria" defaultValue={editingItem?.categoria} required>
+                        <option value="Bebida">Bebida</option>
+                        <option value="Comida">Comida</option>
+                        <option value="Extra">Extra</option>
+                        <option value="Endulzante">Endulzante</option>
+                        </select>
+                    </div>
+                    <div className="admin-form-group">
+                        <label className="admin-form-label">📦 Stock</label>
+                        <input name="stock" type="number" defaultValue={editingItem?.stock || 0} required />
+                    </div>
                   </div>
                 )}
 
+                {/* CAJERAS */}
+                {activeTab === 'cajeras' && (
+                  <>
+                    <div className="admin-form-group">
+                      <label className="admin-form-label">Usuario</label>
+                      <input name="usuario" required />
+                    </div>
+                    <div className="admin-form-group">
+                      <label className="admin-form-label">Contraseña</label>
+                      <input name="password" type="password" required minLength="6" />
+                    </div>
+                  </>
+                )}
+
                 <div className="admin-modal-footer">
-                  <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">
-                    Cancelar
-                  </button>
-                  <button type="submit" className="btn btn-primary">
-                    💾 Guardar
-                  </button>
+                  <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">Cancelar</button>
+                  <button type="submit" className="btn btn-primary">💾 Guardar</button>
                 </div>
               </form>
             </div>

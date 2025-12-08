@@ -781,3 +781,41 @@
     transform: translateY(0);
   }
 }
+
+/* Botón de Sonido Flotante - Diseño Integrado */
+.btn-sound-floating {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  border: 2px solid #ff6b35;
+  border-radius: 50px;
+  color: #d84315;
+  font-weight: 800;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
+  transition: all 0.3s ease;
+  animation: pulse-sound-btn 2s infinite;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-sound-floating:hover {
+  transform: translateY(-2px) scale(1.05);
+  background: #ff6b35;
+  color: white;
+  box-shadow: 0 8px 25px rgba(255, 107, 53, 0.5);
+}
+
+@keyframes pulse-sound-btn {
+  0% { box-shadow: 0 0 0 0 rgba(255, 107, 53, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(255, 107, 53, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 107, 53, 0); }
+}

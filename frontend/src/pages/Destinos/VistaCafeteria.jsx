@@ -1,24 +1,74 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '../../services/api';
 import './VistaCafeteria.css';
 
 const VistaCafeteria = () => {
   const [pedidos, setPedidos] = useState({});
   const [ultimoUpdate, setUltimoUpdate] = useState(new Date());
+  const [permisoSonido, setPermisoSonido] = useState(false);
+
+  // --- REFS PARA AUDIO ---
+  const audioRef = useRef(null);
+  const prevItemsRef = useRef(0);
+  const permisoSonidoRef = useRef(false);
+  const primeraCargaRef = useRef(true);
+
+  // Inicializar audio
+  useEffect(() => {
+    audioRef.current = new Audio('/ding.mp3');
+    audioRef.current.volume = 1.0; 
+    audioRef.current.load(); 
+  }, []);
 
   const cargarPedidos = async () => {
     try {
       const res = await api.get('/pedidos/cafeteria/activos');
-      setPedidos(res.data.items || {});
+      const nuevosItems = res.data.items || {};
+      
+      // Contar total de items individuales (bebidas)
+      const totalItemsActuales = Object.values(nuevosItems).reduce(
+        (sum, list) => sum + list.length, 
+        0
+      );
+
+      // Lógica de Sonido
+      if (primeraCargaRef.current) {
+        prevItemsRef.current = totalItemsActuales;
+        primeraCargaRef.current = false;
+      } else {
+        if (
+          totalItemsActuales > prevItemsRef.current && 
+          permisoSonidoRef.current && 
+          audioRef.current
+        ) {
+          audioRef.current.currentTime = 0;
+          audioRef.current.play().catch(e => console.error(e));
+          if (navigator.vibrate) navigator.vibrate(200);
+        }
+        prevItemsRef.current = totalItemsActuales;
+      }
+
+      setPedidos(nuevosItems);
       setUltimoUpdate(new Date());
     } catch (error) {
       console.error('Error conectando con cafetería:', error);
     }
   };
 
+  const activarSonido = () => {
+    if (!audioRef.current) return;
+    audioRef.current.currentTime = 0;
+    audioRef.current.play()
+      .then(() => {
+        setPermisoSonido(true);
+        permisoSonidoRef.current = true;
+      })
+      .catch(e => alert("No se pudo activar el audio."));
+  };
+
   useEffect(() => {
     cargarPedidos();
-    const intervalo = setInterval(cargarPedidos, 10000);
+    const intervalo = setInterval(cargarPedidos, 5000); // 5 segundos para mejor respuesta
     return () => clearInterval(intervalo);
   }, []);
 
@@ -37,6 +87,7 @@ const VistaCafeteria = () => {
     }
   };
 
+  // Helpers de estilos (sin cambios)
   const getEstadoClass = (estado) => {
     switch(estado) {
       case 'Pendiente': return 'cafe-estado-pendiente';
@@ -55,13 +106,20 @@ const VistaCafeteria = () => {
     }
   };
 
-  // Calcular estadísticas
   const totalPedidos = Object.keys(pedidos).length;
   const totalBebidas = Object.values(pedidos).reduce((sum, items) => sum + items.length, 0);
 
   return (
     <div className="cafeteria-container">
       
+      {/* Botón flotante para activar sonido */}
+      {!permisoSonido && (
+        <button className="btn-sound-floating-cafe" onClick={activarSonido}>
+          <span style={{ fontSize: '1.2rem' }}>🔔</span>
+          Activar Sonido
+        </button>
+      )}
+
       {/* HEADER PREMIUM */}
       <div className="cafeteria-header">
         <div className="cafeteria-header-content">
@@ -105,19 +163,14 @@ const VistaCafeteria = () => {
           <p>No hay pedidos pendientes en este momento</p>
         </div>
       ) : (
-        
         /* GRID DE PEDIDOS */
         <div className="cafeteria-grid">
           {Object.entries(pedidos).map(([pedidoId, items]) => (
             <div key={pedidoId} className="cafeteria-card">
               
-              {/* Header del pedido */}
               <div className="cafeteria-card-header">
                 <div className="cafeteria-header-top">
-                  <span className="cafeteria-pedido-id">
-                    #{pedidoId.slice(-6)}
-                  </span>
-                  
+                  <span className="cafeteria-pedido-id">#{pedidoId.slice(-6)}</span>
                   <div className="cafeteria-time-badge">
                     <span className="cafeteria-time-icon">🕐</span>
                     <span className="cafeteria-time">
@@ -131,7 +184,6 @@ const VistaCafeteria = () => {
                     <span className="cafeteria-cliente-icon">👤</span>
                     <span>{items[0].cliente}</span>
                   </div>
-                  
                   <div className="cafeteria-cajera-badge">
                     <span>💼</span>
                     <span>{items[0].cajera_nombre}</span>
@@ -139,7 +191,6 @@ const VistaCafeteria = () => {
                 </div>
               </div>
 
-              {/* Cuerpo del pedido */}
               <div className="cafeteria-card-body">
                 {items.map(item => (
                   <div key={item.id} className="cafeteria-item">
@@ -149,14 +200,11 @@ const VistaCafeteria = () => {
                           <span className="cafeteria-cantidad">{item.cantidad}</span>
                           <span>{item.producto_nombre}</span>
                         </div>
-                        
                         {item.acompanamiento_nombre && (
                           <div className="cafeteria-item-acomp">
-                            <span>🥄</span>
-                            <span>{item.acompanamiento_nombre}</span>
+                            <span>🥄</span> {item.acompanamiento_nombre}
                           </div>
                         )}
-                        
                         {item.instrucciones_especiales && (
                           <div className="cafeteria-item-nota">
                             ⚠️ {item.instrucciones_especiales}

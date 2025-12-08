@@ -15,6 +15,7 @@ const {
   agruparPor
 } = require('../utils/helpers');
 
+
 /**
  * Crear un nuevo pedido completo con sus items (requiere autenticación)
  * POST /api/pedidos
@@ -26,57 +27,44 @@ const crear = async (req, res, next) => {
     const { cliente, items, notas } = req.body;
     const cajeraId = req.cajera.id;
 
-    // Validaciones básicas
     if (!cliente || !items || items.length === 0) {
-      return res.status(400).json({
-        error: 'Datos incompletos',
-        mensaje: 'Cliente e items son obligatorios'
-      });
+      return res.status(400).json({ error: 'Datos incompletos', mensaje: 'Cliente e items son obligatorios' });
     }
 
     await connection.beginTransaction();
-
-    // Generar ID único para el pedido
     const pedidoId = generarIdPedido();
-
-    // Validar stock y obtener datos de productos
     const productosValidados = [];
     
     for (const item of items) {
-      if (!item.producto_id || !item.cantidad || item.cantidad <= 0) {
-        await connection.rollback();
-        return res.status(400).json({
-          error: 'Item inválido',
-          mensaje: 'Cada item debe tener producto_id y cantidad válida'
-        });
-      }
-
-      // Obtener producto
+      // 1. Validar Producto Principal
       const producto = await productosModel.obtenerPorId(item.producto_id);
-
-      if (!producto) {
+      
+      if (!producto || !producto.activo) {
         await connection.rollback();
-        return res.status(404).json({
-          error: 'Producto no encontrado',
-          mensaje: `El producto con ID ${item.producto_id} no existe`
-        });
+        return res.status(400).json({ error: 'Producto no disponible', mensaje: `El producto con ID ${item.producto_id} no está disponible` });
       }
 
-      if (!producto.activo) {
-        await connection.rollback();
-        return res.status(400).json({
-          error: 'Producto no disponible',
-          mensaje: `El producto "${producto.nombre}" no está disponible`
-        });
-      }
-
-      // Validar stock
       if (!validarStock(producto.stock, item.cantidad)) {
         await connection.rollback();
-        return res.status(400).json({
-          error: 'Stock insuficiente',
-          mensaje: `Stock insuficiente para "${producto.nombre}". Disponible: ${producto.stock}, Solicitado: ${item.cantidad}`
-        });
+        return res.status(400).json({ error: 'Stock insuficiente', mensaje: `Stock insuficiente para "${producto.nombre}"` });
+      }
+
+      // 2. Validar Acompañamiento (NUEVO)
+      if (item.acompanamiento_id) {
+        // Usamos una query directa dentro de la transacción para asegurar consistencia o usamos el modelo
+        const [acompRows] = await connection.query('SELECT * FROM acompanamientos WHERE id = ?', [item.acompanamiento_id]);
+        const acomp = acompRows[0];
+
+        if (!acomp || !acomp.activo) {
+             await connection.rollback();
+             return res.status(400).json({ error: 'Acompañamiento no disponible', mensaje: 'El acompañamiento seleccionado no existe o no está activo' });
+        }
+
+        // Validamos stock del acompañamiento (se descuenta la misma cantidad que el producto principal)
+        if (acomp.stock < item.cantidad) {
+            await connection.rollback();
+            return res.status(400).json({ error: 'Stock insuficiente', mensaje: `No hay suficiente stock de "${acomp.nombre}"` });
+        }
       }
 
       productosValidados.push({
@@ -86,10 +74,8 @@ const crear = async (req, res, next) => {
       });
     }
 
-    // Calcular total del pedido
     const totalPedido = productosValidados.reduce((sum, item) => sum + item.subtotal, 0);
 
-    // Crear cabecera del pedido
     await pedidosModel.crear({
       id: pedidoId,
       cliente,
@@ -99,9 +85,7 @@ const crear = async (req, res, next) => {
       estado_general: 'Pendiente'
     });
 
-    // Crear items y actualizar stock
     for (const item of productosValidados) {
-      // Crear item del pedido
       await pedidosModel.crearItem({
         pedido_id: pedidoId,
         producto_id: item.producto_id,
@@ -114,23 +98,19 @@ const crear = async (req, res, next) => {
         destino_id: item.producto.destino_id
       });
 
-      // Restar stock
-      const nuevoStock = item.producto.stock - item.cantidad;
-      await connection.query(
-        'UPDATE productos SET stock = ? WHERE id = ?',
-        [nuevoStock, item.producto_id]
-      );
+      // Actualizar Stock Producto
+      await connection.query('UPDATE productos SET stock = stock - ? WHERE id = ?', [item.cantidad, item.producto_id]);
+
+      // Actualizar Stock Acompañamiento (NUEVO)
+      if (item.acompanamiento_id) {
+        await connection.query('UPDATE acompanamientos SET stock = stock - ? WHERE id = ?', [item.cantidad, item.acompanamiento_id]);
+      }
     }
 
     await connection.commit();
-
-    // Obtener pedido completo creado
     const pedidoCreado = await pedidosModel.obtenerPorId(pedidoId);
 
-    res.status(201).json({
-      mensaje: MENSAJES_EXITO.PEDIDO_CREADO,
-      pedido: pedidoCreado
-    });
+    res.status(201).json({ mensaje: MENSAJES_EXITO.PEDIDO_CREADO, pedido: pedidoCreado });
 
   } catch (error) {
     await connection.rollback();
@@ -381,63 +361,38 @@ const cancelar = async (req, res, next) => {
 
   try {
     const { id } = req.params;
-
     await connection.beginTransaction();
 
-    // Verificar que el pedido existe
     const pedido = await pedidosModel.obtenerPorId(id);
 
     if (!pedido) {
       await connection.rollback();
-      return res.status(404).json({
-        error: 'Pedido no encontrado',
-        mensaje: MENSAJES_ERROR.PEDIDO_NO_ENCONTRADO
-      });
+      return res.status(404).json({ error: 'Pedido no encontrado', mensaje: MENSAJES_ERROR.PEDIDO_NO_ENCONTRADO });
     }
 
-    if (pedido.estado_general === 'Cancelado') {
-      await connection.rollback();
-      return res.status(400).json({
-        error: 'Pedido ya cancelado',
-        mensaje: 'Este pedido ya fue cancelado anteriormente'
-      });
+    if (pedido.estado_general === 'Cancelado' || pedido.estado_general === 'Completado') {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Acción no permitida', mensaje: 'El pedido ya fue completado o cancelado' });
     }
 
-    if (pedido.estado_general === 'Completado') {
-      await connection.rollback();
-      return res.status(400).json({
-        error: 'No se puede cancelar',
-        mensaje: 'No se puede cancelar un pedido ya completado'
-      });
-    }
+    const items = pedido.items.filter(item => item.estado !== 'Entregado' && item.estado !== 'Cancelado');
 
-    // Obtener items no entregados ni cancelados
-    const items = pedido.items.filter(
-      item => item.estado !== 'Entregado' && item.estado !== 'Cancelado'
-    );
-
-    // Devolver stock y marcar items como cancelados
     for (const item of items) {
-      // Devolver stock
-      await connection.query(
-        'UPDATE productos SET stock = stock + ? WHERE id = ?',
-        [item.cantidad, item.producto_id]
-      );
+      // Devolver stock Producto
+      await connection.query('UPDATE productos SET stock = stock + ? WHERE id = ?', [item.cantidad, item.producto_id]);
 
-      // Marcar item como cancelado
+      // Devolver stock Acompañamiento (NUEVO)
+      if (item.acompanamiento_id) {
+        await connection.query('UPDATE acompanamientos SET stock = stock + ? WHERE id = ?', [item.cantidad, item.acompanamiento_id]);
+      }
+
       await pedidosModel.actualizarEstadoItem(item.id, 'Cancelado');
     }
 
-    // Actualizar estado general
     await pedidosModel.actualizarEstadoGeneral(id, 'Cancelado');
-
     await connection.commit();
 
-    res.json({
-      mensaje: MENSAJES_EXITO.PEDIDO_CANCELADO,
-      pedido_id: id,
-      items_cancelados: items.length
-    });
+    res.json({ mensaje: MENSAJES_EXITO.PEDIDO_CANCELADO, pedido_id: id });
 
   } catch (error) {
     await connection.rollback();
@@ -452,53 +407,34 @@ const eliminar = async (req, res, next) => {
 
   try {
     const { id } = req.params;
-
     await connection.beginTransaction();
 
-    // 1. Obtener datos del pedido antes de borrarlo (para saber qué hacer con el stock)
     const pedido = await pedidosModel.obtenerPorId(id);
-
     if (!pedido) {
       await connection.rollback();
-      return res.status(404).json({
-        error: 'Pedido no encontrado',
-        mensaje: MENSAJES_ERROR.PEDIDO_NO_ENCONTRADO
-      });
+      return res.status(404).json({ error: 'Pedido no encontrado', mensaje: MENSAJES_ERROR.PEDIDO_NO_ENCONTRADO });
     }
 
-    // 2. Devolver stock si corresponde
-    // Si el pedido NO estaba cancelado, significa que los items descontaron stock.
-    // Hay que devolverlo antes de borrar el registro para no perder inventario.
     if (pedido.estado_general !== 'Cancelado') {
       const items = pedido.items;
-      
       for (const item of items) {
-        // Solo devolvemos stock si el item no estaba ya cancelado individualmente
         if (item.estado !== 'Cancelado') {
-          await connection.query(
-            'UPDATE productos SET stock = stock + ? WHERE id = ?',
-            [item.cantidad, item.producto_id]
-          );
+          // Devolver stock Producto
+          await connection.query('UPDATE productos SET stock = stock + ? WHERE id = ?', [item.cantidad, item.producto_id]);
+          
+          // Devolver stock Acompañamiento (NUEVO)
+          if (item.acompanamiento_id) {
+             await connection.query('UPDATE acompanamientos SET stock = stock + ? WHERE id = ?', [item.cantidad, item.acompanamiento_id]);
+          }
         }
       }
     }
 
-    // 3. Ejecutar el borrado físico (usando la conexión de la transacción para seguridad)
-    // Nota: Como pedidosModel.eliminar usa 'pool' directo, aquí lo hacemos manual 
-    // dentro de la transacción para asegurar atomicidad.
-    
-    // Borrar items
     await connection.query('DELETE FROM pedidos_items WHERE pedido_id = ?', [id]);
-    
-    // Borrar cabecera
     await connection.query('DELETE FROM pedidos WHERE id = ?', [id]);
 
     await connection.commit();
-
-    res.json({
-      mensaje: 'Registro eliminado permanentemente y stock ajustado.',
-      id_eliminado: id
-    });
+    res.json({ mensaje: 'Registro eliminado y stock ajustado.', id_eliminado: id });
 
   } catch (error) {
     await connection.rollback();
