@@ -43,16 +43,19 @@ const AdminPanel = () => {
     } finally { setLoading(false); }
   };
 
-  const cargarAuxiliares = async () => {
+const cargarAuxiliares = async () => {
     try {
-      const [resCat, resDest, resAcomp] = await Promise.all([
+      const [resCat, resDest, resAcomp, resProd] = await Promise.all([
         api.get('/categorias'),
         api.get('/destinos'),
-        api.get('/acompanamientos')
+        api.get('/acompanamientos'),
+        api.get('/productos') // Traemos productos para el select
       ]);
       setAuxCats(resCat.data);
       setAuxDest(resDest.data);
       setAuxAcomp(resAcomp.data);
+      // Necesitarás un estado nuevo: const [listaProductos, setListaProductos] = useState([]);
+      setListaProductos(resProd.data.productos || []); 
     } catch (error) { console.error("Error cargando auxiliares:", error); }
   };
 
@@ -289,23 +292,56 @@ const AdminPanel = () => {
 
                 {/* ACOMPAÑAMIENTOS */}
                 {activeTab === 'acompanamientos' && (
-                  <div className="admin-form-row">
-                    <div className="admin-form-group">
-                        <label className="admin-form-label">Categoría</label>
-                        <select name="categoria" defaultValue={editingItem?.categoria} required>
-                        <option value="Bebida">Bebida</option>
-                        <option value="Comida">Comida</option>
-                        <option value="Extra">Extra</option>
-                        <option value="Endulzante">Endulzante</option>
-                        </select>
+                  <>
+                    <div className="admin-form-row">
+                      <div className="admin-form-group">
+                          <label className="admin-form-label">Categoría</label>
+                          <select name="categoria" defaultValue={editingItem?.categoria} required>
+                            <option value="Bebida">Bebida</option>
+                            <option value="Comida">Comida</option>
+                            <option value="Extra">Extra</option>
+                            <option value="Endulzante">Endulzante</option>
+                            <option value="Otro">Otro</option>
+                          </select>
+                      </div>
+                      
+                      {/* Selector de Producto Vinculado */}
+                      <div className="admin-form-group">
+                          <label className="admin-form-label">🔗 Vincular Stock con Producto (Opcional)</label>
+                          <select 
+                            name="producto_vinculado_id" 
+                            defaultValue={editingItem?.producto_vinculado_id || ""}
+                            onChange={(e) => {
+                              // Pequeña lógica visual: si vincula producto, deshabilitar input de stock manual
+                              const inputStock = document.getElementById('input-stock-acomp');
+                              if (inputStock) inputStock.disabled = !!e.target.value;
+                            }}
+                          >
+                            <option value="">-- Sin vincular (Stock independiente) --</option>
+                            {/* Usamos auxAcomp que tiene productos si cargamos todo, 
+                                pero lo ideal es cargar productos en 'cargarAuxiliares' 
+                                aunque estemos en pestaña acompañamientos */}
+                            {/* Nota: Necesitas asegurarte de cargar los productos en cargarAuxiliares() */}
+                            {dataProductosParaSelect.map(p => (
+                              <option key={p.id} value={p.id}>{p.nombre} (Stock: {p.stock})</option>
+                            ))}
+                          </select>
+                          <small style={{fontSize:'0.7rem', color:'#666'}}>Si seleccionas uno, el stock se descontará de ese producto.</small>
+                      </div>
                     </div>
-                    <div className="admin-form-group">
-                        <label className="admin-form-label">📦 Stock</label>
-                        <input name="stock" type="number" defaultValue={editingItem?.stock || 0} required />
-                    </div>
-                  </div>
-                )}
 
+                    <div className="admin-form-group">
+                        <label className="admin-form-label">📦 Stock Manual</label>
+                        <input 
+                            id="input-stock-acomp"
+                            name="stock" 
+                            type="number" 
+                            defaultValue={editingItem?.stock || 0} 
+                            disabled={!!editingItem?.producto_vinculado_id} // Deshabilitar si ya está vinculado
+                        />
+                    </div>
+                  </>
+                )}
                 {/* CAJERAS */}
                 {activeTab === 'cajeras' && (
                   <>

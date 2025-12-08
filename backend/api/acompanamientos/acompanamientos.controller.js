@@ -12,11 +12,24 @@ const obtenerTodos = async (req, res, next) => {
 
 const crear = async (req, res, next) => {
   try {
-    const { nombre, categoria, stock } = req.body;
+    // MODIFICADO: Extraemos producto_vinculado_id del body
+    const { nombre, categoria, stock, producto_vinculado_id } = req.body;
+    
     // Si no envían stock, asumimos 0
     const stockInt = stock ? parseInt(stock) : 0;
-    const id = await model.crear(nombre, categoria, stockInt);
-    res.status(201).json({ mensaje: 'Acompañamiento creado', id, nombre, stock: stockInt });
+    
+    // Si envían string vacío o "0", lo convertimos a null
+    const prodVinculadoId = producto_vinculado_id ? parseInt(producto_vinculado_id) : null;
+
+    const id = await model.crear(nombre, categoria, stockInt, prodVinculadoId);
+    
+    res.status(201).json({ 
+        mensaje: 'Acompañamiento creado', 
+        id, 
+        nombre, 
+        stock: stockInt,
+        producto_vinculado_id: prodVinculadoId 
+    });
   } catch (error) { next(error); }
 };
 
@@ -24,6 +37,12 @@ const actualizar = async (req, res, next) => {
   try {
     const { id } = req.params;
     const datos = req.body;
+    
+    // Convertir a null si viene vacío para desvincular
+    if (datos.producto_vinculado_id === "") {
+        datos.producto_vinculado_id = null;
+    }
+
     const exito = await model.actualizar(id, datos);
     if (!exito) return res.status(404).json({ error: MENSAJES_ERROR.ACOMPANAMIENTO_NO_ENCONTRADO });
     res.json({ mensaje: 'Acompañamiento actualizado' });
