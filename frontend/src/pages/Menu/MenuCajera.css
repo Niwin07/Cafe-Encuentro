@@ -6,9 +6,9 @@
 .pos-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100vh; /* Ocupa toda la pantalla */
   background: var(--bg-primary);
-  overflow: hidden;
+  overflow: hidden; /* Evita scroll en el body */
 }
 
 /* ========== HEADER ========== */
@@ -18,6 +18,7 @@
   padding: 1rem 1.5rem;
   box-shadow: var(--shadow-lg);
   z-index: 100;
+  flex-shrink: 0; /* Evita que el header se achique */
 }
 
 .pos-header-content {
@@ -55,9 +56,10 @@
 .pos-layout {
   display: grid;
   grid-template-columns: 1fr 420px 320px;
-  flex: 1;
-  overflow: hidden;
+  flex: 1; /* Ocupa el espacio restante debajo del header */
+  overflow: hidden; /* Evita que el layout crezca más allá de la pantalla */
   gap: 0;
+  height: 100%; /* Asegura que respete el flex: 1 del padre */
 }
 
 /* ========== SECCIÓN CATÁLOGO ========== */
@@ -67,12 +69,14 @@
   background: white;
   border-right: 1px solid var(--border-light);
   overflow: hidden;
+  height: 100%; /* Importante */
 }
 
 .pos-catalogo-filtros {
   padding: 1.25rem;
   border-bottom: 1px solid var(--border-light);
   background: var(--crema);
+  flex-shrink: 0;
 }
 
 .pos-buscador {
@@ -105,7 +109,7 @@
 /* Grid de Productos */
 .pos-productos-grid {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: auto; /* Scroll solo aquí */
   padding: 1.5rem;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -198,19 +202,22 @@
   margin: 0 0 1rem 0;
 }
 
-/* ========== SECCIÓN CARRITO ========== */
+/* ========== SECCIÓN CARRITO (CORREGIDA) ========== */
 .pos-carrito {
   display: flex;
   flex-direction: column;
   background: white;
   box-shadow: var(--shadow-xl);
   border-left: 1px solid var(--border-light);
+  height: 100%; /* Forzar altura completa */
+  overflow: hidden; /* Evitar que crezca */
 }
 
 .pos-carrito-header {
   padding: 1.5rem;
   border-bottom: 1px solid var(--border-light);
   background: var(--crema);
+  flex-shrink: 0; /* No encoger header */
 }
 
 .pos-carrito-header h3 {
@@ -220,9 +227,10 @@
 }
 
 .pos-carrito-items {
-  flex: 1;
-  overflow-y: auto;
+  flex: 1; /* Ocupa el espacio disponible */
+  overflow-y: auto; /* Scroll si se llena */
   padding: 1rem;
+  min-height: 0; /* Truco vital para Flexbox anidado */
 }
 
 .carrito-item {
@@ -291,6 +299,7 @@
   padding: 1.5rem;
   background: linear-gradient(135deg, var(--cafe-medio), var(--cafe-claro));
   color: white;
+  flex-shrink: 0; /* Asegura que el footer siempre se vea y no se aplaste */
 }
 
 .carrito-total {
@@ -317,6 +326,42 @@
   background: white;
   border-left: 1px solid var(--border-light);
   overflow: hidden;
+  height: 100%;
+}
+
+/* ========== TABS MÓVILES ========== */
+.pos-tabs-mobile {
+  display: none;
+  background: white;
+  border-bottom: 2px solid var(--border-light);
+  box-shadow: var(--shadow-md);
+  flex-shrink: 0;
+}
+
+.pos-tabs-container {
+  display: flex;
+}
+
+.pos-tab-btn {
+  flex: 1;
+  padding: 1rem;
+  border: none;
+  background: none;
+  border-bottom: 3px solid transparent;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.pos-tab-btn.active {
+  color: var(--cafe-claro);
+  border-bottom-color: var(--cafe-claro);
+  background: var(--crema);
 }
 
 /* ========== RESPONSIVE ========== */
@@ -329,11 +374,11 @@
   }
 
   .pos-pedidos {
-    display: none; /* Ocultamos pedidos en tablet/móvil */
+    display: none; /* Ocultamos pedidos en tablet */
   }
 
   .pos-carrito {
-    max-height: 45vh;
+    max-height: 45vh; /* En tablet el carrito es una barra abajo */
     border-left: none;
     border-top: 3px solid var(--cafe-claro);
   }
@@ -347,6 +392,11 @@
   .producto-card {
     min-height: 140px;
     padding: 1rem;
+  }
+  
+  /* Mostrar tabs en tablet para acceder a pedidos */
+  .pos-tabs-mobile {
+    display: block;
   }
 }
 
@@ -392,6 +442,33 @@
   .carrito-total {
     font-size: 1.5rem;
   }
+  
+  /* Lógica de Tabs Móviles */
+  .pos-tabs-mobile {
+    display: block;
+  }
+
+  .pos-layout {
+    display: flex; /* Cambiamos a flex para manejar el alto */
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .pos-catalogo,
+  .pos-carrito,
+  .pos-pedidos {
+    display: none;
+  }
+
+  /* El tab activo ocupa todo el espacio restante */
+  .pos-catalogo.active,
+  .pos-carrito.active,
+  .pos-pedidos.active {
+    display: flex;
+    flex: 1;
+    height: auto; /* Dejar que flex maneje la altura */
+    overflow: hidden;
+  }
 }
 
 /* Desktop grande (1400px+) */
@@ -403,63 +480,6 @@
   .pos-productos-grid {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 1.5rem;
-  }
-}
-
-/* ========== TABS MÓVILES ========== */
-.pos-tabs-mobile {
-  display: none;
-  background: white;
-  border-bottom: 2px solid var(--border-light);
-  box-shadow: var(--shadow-md);
-}
-
-.pos-tabs-container {
-  display: flex;
-}
-
-.pos-tab-btn {
-  flex: 1;
-  padding: 1rem;
-  border: none;
-  background: none;
-  border-bottom: 3px solid transparent;
-  font-weight: 600;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.pos-tab-btn.active {
-  color: var(--cafe-claro);
-  border-bottom-color: var(--cafe-claro);
-  background: var(--crema);
-}
-
-@media (max-width: 1023px) {
-  .pos-tabs-mobile {
-    display: block;
-  }
-
-  .pos-layout {
-    display: block;
-  }
-
-  .pos-catalogo,
-  .pos-carrito,
-  .pos-pedidos {
-    display: none;
-  }
-
-  .pos-catalogo.active,
-  .pos-carrito.active,
-  .pos-pedidos.active {
-    display: flex;
-    height: calc(100vh - 140px); /* Header + Tabs */
   }
 }
 
