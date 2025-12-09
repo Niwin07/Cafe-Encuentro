@@ -17,7 +17,7 @@ const VistaCocina = () => {
 
   // Inicializar audio
   useEffect(() => {
-    audioRef.current = new Audio('/ding.mp3');
+    audioRef.current = new Audio('/ding.wav');
     audioRef.current.volume = 1.0; 
     audioRef.current.load(); 
   }, []);
