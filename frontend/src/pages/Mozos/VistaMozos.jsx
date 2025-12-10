@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Grid, List, Filter, X, Coffee } from 'lucide-react';
+import { Search, Grid, List, Filter, X, Coffee, RefreshCw } from 'lucide-react';
 import api from '../../services/api';
 import './VistaMozos.css';
 
@@ -10,10 +10,15 @@ const VistaMozos = () => {
   const [vistaGrid, setVistaGrid] = useState(true);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Cargar inventario desde tu API real
-  const cargarInventario = async () => {
-    setLoading(true);
+  const cargarInventario = async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    
     try {
       const res = await api.get('/productos');
       const prodsActivos = res.data.productos.filter(p => p.stock > 0);
@@ -22,12 +27,13 @@ const VistaMozos = () => {
       console.error("Error cargando inventario:", error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   useEffect(() => {
     cargarInventario();
-    const interval = setInterval(cargarInventario, 120000); // Auto-refresh cada 2 min
+    const interval = setInterval(() => cargarInventario(true), 120000);
     return () => clearInterval(interval);
   }, []);
 
@@ -53,11 +59,15 @@ const VistaMozos = () => {
   if (loading) {
     return (
       <div className="loading-container">
-        <div className="text-center">
-          <div className="coffee-spinner">
-            <Coffee className="coffee-icon" size={48} />
+        <div className="loading-content">
+          <div className="coffee-cup">
+            <Coffee className="coffee-icon" />
+            <div className="steam steam-1"></div>
+            <div className="steam steam-2"></div>
+            <div className="steam steam-3"></div>
           </div>
-          <p className="loading-text">Preparando el menú...</p>
+          <h2 className="loading-title">Preparando el menú</h2>
+          <p className="loading-subtitle">Un momento por favor...</p>
         </div>
       </div>
     );
@@ -65,148 +75,175 @@ const VistaMozos = () => {
 
   return (
     <div className="menu-wrapper">
-      {/* Header con temática café */}
+      {/* Header optimizado */}
       <header className="menu-header">
-        <div className="header-content">
-          <div className="header-left">
-            <div className="coffee-badge">
-              <Coffee size={28} />
+        <div className="container">
+          <div className="header-top">
+            <div className="brand">
+              <div className="brand-icon">
+                <Coffee />
+              </div>
+              <div className="brand-text">
+                <h1 className="brand-title">Nuestro Menú</h1>
+                <p className="brand-subtitle">Delicias artesanales</p>
+              </div>
             </div>
-            <div>
-              <h1 className="menu-title">Nuestro Menú</h1>
-              <p className="menu-subtitle">Descubrí nuestras delicias artesanales</p>
+            
+            <div className="header-actions">
+              <button 
+                onClick={() => cargarInventario(true)} 
+                className={`refresh-btn ${refreshing ? 'spinning' : ''}`}
+                disabled={refreshing}
+                title="Actualizar menú"
+              >
+                <RefreshCw size={20} />
+              </button>
+              
+              <div className="view-toggle">
+                <button
+                  onClick={() => setVistaGrid(true)}
+                  className={`toggle-btn ${vistaGrid ? 'active' : ''}`}
+                  aria-label="Vista en grilla"
+                >
+                  <Grid size={18} />
+                </button>
+                <button
+                  onClick={() => setVistaGrid(false)}
+                  className={`toggle-btn ${!vistaGrid ? 'active' : ''}`}
+                  aria-label="Vista en lista"
+                >
+                  <List size={18} />
+                </button>
+              </div>
             </div>
           </div>
-          
-          {/* Toggle Grid/List */}
-          <div className="view-toggle">
-            <button
-              onClick={() => setVistaGrid(true)}
-              className={`toggle-btn ${vistaGrid ? 'active' : ''}`}
-              title="Vista en grilla"
-            >
-              <Grid size={20} />
-            </button>
-            <button
-              onClick={() => setVistaGrid(false)}
-              className={`toggle-btn ${!vistaGrid ? 'active' : ''}`}
-              title="Vista en lista"
-            >
-              <List size={20} />
-            </button>
+
+          <div className="search-wrapper">
+            <div className="search-box">
+              <Search className="search-icon" />
+              <input
+                type="text"
+                placeholder="Buscar platos..."
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className="search-input"
+              />
+              {busqueda && (
+                <button onClick={() => setBusqueda('')} className="clear-btn">
+                  <X size={18} />
+                </button>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Búsqueda */}
-        <div className="search-container">
-          <Search className="search-icon" size={20} />
-          <input
-            type="text"
-            placeholder="Buscar en el menú..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            className="search-input"
-          />
-          {busqueda && (
-            <button onClick={() => setBusqueda('')} className="clear-btn">
-              <X size={20} />
-            </button>
-          )}
+          <button
+            onClick={() => setMostrarFiltros(!mostrarFiltros)}
+            className="filter-toggle"
+          >
+            <Filter size={18} />
+            <span>Categorías</span>
+            <span className="filter-count">{categorias.length - 1}</span>
+          </button>
         </div>
-
-        {/* Botón filtros móvil */}
-        <button
-          onClick={() => setMostrarFiltros(!mostrarFiltros)}
-          className="filter-btn-mobile"
-        >
-          <Filter size={18} />
-          Filtrar por categoría
-        </button>
       </header>
 
       <main className="menu-main">
-        {/* Categorías */}
-        <div className={`categories-section ${mostrarFiltros ? 'show' : ''}`}>
-          <div className="categories-scroll">
-            {categorias.map(cat => (
-              <button
-                key={cat}
+        <div className="container">
+          {/* Categorías mejoradas */}
+          <div className={`categories ${mostrarFiltros ? 'show' : ''}`}>
+            <div className="categories-inner">
+              {categorias.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => {
+                    setCategoriaSeleccionada(cat);
+                    setMostrarFiltros(false);
+                  }}
+                  className={`category ${categoriaSeleccionada === cat ? 'active' : ''}`}
+                >
+                  <span className="category-text">{cat}</span>
+                  {categoriaSeleccionada === cat && <span className="category-check">✓</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Info bar */}
+          <div className="info-bar">
+            <p className="results-text">
+              <strong>{productosFiltrados.length}</strong> {productosFiltrados.length === 1 ? 'plato disponible' : 'platos disponibles'}
+              {categoriaSeleccionada !== 'Todos' && <span className="filter-active"> en {categoriaSeleccionada}</span>}
+            </p>
+          </div>
+
+          {/* Grid de productos ultra optimizado */}
+          {productosFiltrados.length === 0 ? (
+            <div className="empty">
+              <div className="empty-icon">🔍</div>
+              <h3 className="empty-title">No hay resultados</h3>
+              <p className="empty-text">
+                {busqueda ? `No encontramos "${busqueda}"` : 'No hay productos en esta categoría'}
+              </p>
+              <button 
                 onClick={() => {
-                  setCategoriaSeleccionada(cat);
-                  setMostrarFiltros(false);
+                  setBusqueda('');
+                  setCategoriaSeleccionada('Todos');
                 }}
-                className={`category-chip ${categoriaSeleccionada === cat ? 'active' : ''}`}
+                className="empty-btn"
               >
-                {cat}
+                Ver todo el menú
               </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Contador */}
-        <div className="results-count">
-          <span className="count-text">
-            {productosFiltrados.length} {productosFiltrados.length === 1 ? 'plato' : 'platos'} disponibles
-          </span>
-        </div>
-
-        {/* Productos */}
-        {productosFiltrados.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon">🔍</div>
-            <h3 className="empty-title">No encontramos resultados</h3>
-            <p className="empty-text">Intentá con otra búsqueda o categoría</p>
-          </div>
-        ) : (
-          <div className={vistaGrid ? 'products-grid' : 'products-list'}>
-            {productosFiltrados.map((producto, idx) => (
-              <article
-                key={producto.id}
-                style={{ animationDelay: `${idx * 50}ms` }}
-                className={`product-card ${!vistaGrid ? 'list-view' : ''}`}
-              >
-                {/* Imagen/Icono */}
-                <div className={`product-image ${!vistaGrid ? 'list-image' : ''}`}>
-                  <span className="product-emoji">
-                    {getCategoryIcon(producto.categoria_nombre)}
-                  </span>
-                </div>
-
-                {/* Contenido */}
-                <div className={`product-content ${!vistaGrid ? 'list-content' : ''}`}>
-                  <div className="product-header">
-                    <h3 className="product-name">{producto.nombre}</h3>
+            </div>
+          ) : (
+            <div className={`products ${vistaGrid ? 'grid' : 'list'}`}>
+              {productosFiltrados.map((producto, idx) => (
+                <article
+                  key={producto.id}
+                  className="product"
+                  style={{ '--delay': `${idx * 30}ms` }}
+                >
+                  <div className="product-media">
+                    <div className="product-icon">
+                      {getCategoryIcon(producto.categoria_nombre)}
+                    </div>
                     {producto.stock < 5 && (
-                      <span className="stock-badge low">
-                        ⚠️ Pocas unidades
-                      </span>
+                      <div className="product-badge badge-warning">
+                        <span className="badge-dot"></span>
+                        Últimas unidades
+                      </div>
                     )}
                   </div>
 
-                  {producto.descripcion && (
-                    <p className="product-description">
-                      {producto.descripcion}
-                    </p>
-                  )}
+                  <div className="product-body">
+                    <div className="product-info">
+                      <h3 className="product-title">{producto.nombre}</h3>
+                      <span className="product-tag">{producto.categoria_nombre}</span>
+                    </div>
 
-                  <div className="product-footer">
-                    <span className="product-price">${producto.precio}</span>
-                    <span className="product-category">{producto.categoria_nombre}</span>
+                    {producto.descripcion && (
+                      <p className="product-desc">{producto.descripcion}</p>
+                    )}
+
+                    <div className="product-meta">
+                      <span className="product-price">${producto.precio.toLocaleString('es-AR')}</span>
+                      <span className="product-stock">{producto.stock} disponibles</span>
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
       </main>
 
-      {/* Footer */}
       <footer className="menu-footer">
-        <div className="footer-content">
-          <Coffee size={24} className="footer-icon" />
-          <div>
-            <p className="footer-title">¿Alguna preferencia alimentaria?</p>
-            <p className="footer-text">Consultá con nuestro personal</p>
+        <div className="container">
+          <div className="footer-card">
+            <Coffee className="footer-icon" />
+            <div className="footer-text">
+              <p className="footer-title">¿Consultas sobre el menú?</p>
+              <p className="footer-subtitle">Nuestro equipo está para ayudarte</p>
+            </div>
           </div>
         </div>
       </footer>
