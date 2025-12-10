@@ -113,9 +113,9 @@ const ListaPedidosActivos = () => {
               listo: items.filter(i => i.estado === 'Listo').length
             };
             
-            // Calcular total del pedido CON VALIDACIÓN
+            // Calcular total del pedido - CAMPO CORRECTO: precio_unitario
             const totalPedido = items.reduce((sum, item) => {
-              const precio = parseFloat(item.precio) || 0;
+              const precio = parseFloat(item.precio_unitario) || 0;
               const cantidad = parseInt(item.cantidad) || 0;
               return sum + (precio * cantidad);
             }, 0);
@@ -167,9 +167,10 @@ const ListaPedidosActivos = () => {
                   <div className="pedido-detalle animate-fade-in">
                     <div className="pedido-items">
                       {items.map((item, idx) => {
-                        const precioItem = parseFloat(item.precio) || 0;
-                        const cantidadItem = parseInt(item.cantidad) || 0;
-                        const subtotalItem = precioItem * cantidadItem;
+                        // USAR subtotal si viene del backend, sino calcular
+                        const subtotalItem = item.subtotal 
+                          ? parseFloat(item.subtotal) 
+                          : (parseFloat(item.precio_unitario) || 0) * (parseInt(item.cantidad) || 0);
                         
                         return (
                           <div key={idx} className="pedido-item">
