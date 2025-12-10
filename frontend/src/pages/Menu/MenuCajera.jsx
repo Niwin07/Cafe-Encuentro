@@ -73,46 +73,54 @@ const MenuCajera = () => {
     setCarrito(carrito.filter(item => item.tempId !== tempId));
   };
 
-    const confirmarPedido = async () => {
-    if (!cliente.trim()) return alert('⚠️ Falta nombre del cliente');
-    if (carrito.length === 0) return alert('⚠️ Carrito vacío');
+  const confirmarPedido = async () => {
+  if (!cliente.trim()) return alert('⚠️ Falta nombre del cliente');
+  if (carrito.length === 0) return alert('⚠️ Carrito vacío');
+  
+  // Validar que todos los items tengan acompañamiento si hay opciones disponibles
+  const itemsSinAcompRequerido = [];
+  
+  for (const item of carrito) {
+    // Buscar el producto original para ver si tiene acompañamientos disponibles
+    const prodOriginal = productos.find(p => p.id === item.id);
     
-    // Validar que todos los items tengan acompañamiento si es requerido
-    const itemsSinAcomp = carrito.filter(item => 
-      item.acompanamiento_id === null || item.acompanamiento_id === undefined
-    );
-    
-    if (itemsSinAcomp.length > 0) {
-      const productossinAcomp = itemsSinAcomp.map(i => i.nombre).join(', ');
-      return alert(`⚠️ Los siguientes productos requieren acompañamiento: ${productossinAcomp}`);
+    // Si el producto tiene acompañamientos disponibles y no se seleccionó ninguno
+    if (prodOriginal?.acompanamientos?.length > 0 && !item.acompanamiento_id) {
+      itemsSinAcompRequerido.push(item.nombre);
     }
+  }
+  
+  if (itemsSinAcompRequerido.length > 0) {
+    const productosLista = itemsSinAcompRequerido.join(', ');
+    return alert(`⚠️ Los siguientes productos requieren seleccionar un acompañamiento:\n\n${productosLista}`);
+  }
+  
+  setProcesando(true);
+  try {
+    const payload = {
+      cliente: cliente,
+      items: carrito.map(item => ({
+        producto_id: item.id,
+        cantidad: item.cantidad,
+        acompanamiento_id: item.acompanamiento_id,
+        instrucciones_especiales: item.notas
+      }))
+    };
+    await api.post('/pedidos', payload);
+    alert('✅ Pedido confirmado');
+    setCarrito([]);
+    setCliente('');
+    cargarDatos();
     
-    setProcesando(true);
-    try {
-      const payload = {
-        cliente: cliente,
-        items: carrito.map(item => ({
-          producto_id: item.id,
-          cantidad: item.cantidad,
-          acompanamiento_id: item.acompanamiento_id,
-          instrucciones_especiales: item.notas
-        }))
-      };
-      await api.post('/pedidos', payload);
-      alert('✅ Pedido confirmado');
-      setCarrito([]);
-      setCliente('');
-      cargarDatos();
-      
-      // Cambiar a pestaña de pedidos en móvil
-      if (window.innerWidth < 1024) {
-        setTabActiva('pedidos');
-      }
-    } catch (error) { 
-      alert(error.message); 
-    } finally { 
-      setProcesando(false); 
+    // Cambiar a pestaña de pedidos en móvil
+    if (window.innerWidth < 1024) {
+      setTabActiva('pedidos');
     }
+  } catch (error) { 
+    alert(error.message); 
+  } finally { 
+    setProcesando(false); 
+  }
   };
 
   const total = carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);

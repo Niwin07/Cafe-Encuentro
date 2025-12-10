@@ -137,19 +137,25 @@ const ModalProducto = ({ producto, carrito, onClose, onConfirm }) => {
             {/* SECCIÓN ACOMPAÑAMIENTOS MEJORADA */}
             {opcionesDisponibles.length > 0 && (
               <div className="modal-section">
-                <label className="modal-label">🥄 Acompañamiento (Opcional)</label>
+                <label className="modal-label">
+                  🥄 Acompañamiento 
+                  <span style={{ color: 'var(--error)', marginLeft: '0.25rem' }}>*</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
+                    (Obligatorio)
+                  </span>
+                </label>
                 <select 
                   value={acompanamientoId} 
                   onChange={e => setAcompanamientoId(e.target.value)}
                   className="modal-select"
-                  style={{ borderColor: stockInsuficienteAcomp ? 'var(--error)' : '' }}
+                  style={{ 
+                    borderColor: (!acompanamientoId || stockInsuficienteAcomp) ? 'var(--error)' : 'var(--success)'
+                  }}
                 >
-                  <option value="">-- Ninguno --</option>
+                  <option value="">-- Selecciona un acompañamiento --</option>
                   
                   {opcionesDisponibles.map(op => {
-                      // Calculamos stock para CADA opción aquí mismo
                       const stockDisp = calcularStockAcomp(op);
-                      // Deshabilitamos si no alcanza para la cantidad actual
                       const disabled = stockDisp < cantidad;
                       
                       return (
@@ -165,11 +171,18 @@ const ModalProducto = ({ producto, carrito, onClose, onConfirm }) => {
                   })}
                 </select>
                 
-                {/* Mensajes de ayuda o error */}
+                {/* Mensaje cuando no se ha seleccionado */}
+                {!acompanamientoId && (
+                  <small style={{ color: 'var(--error)', display: 'block', marginTop: '0.5rem', fontWeight: '600' }}>
+                      ⚠️ Debes seleccionar un acompañamiento para continuar
+                  </small>
+                )}
+                
+                {/* Mensajes de ayuda o error cuando sí está seleccionado */}
                 {acompanamientoId && !stockInsuficienteAcomp && (
-                   <small style={{ color: 'var(--success)', display: 'block', marginTop: '0.25rem' }}>
+                  <small style={{ color: 'var(--success)', display: 'block', marginTop: '0.25rem' }}>
                       ✓ Stock suficiente ({stockRealAcomp} disponibles)
-                   </small>
+                  </small>
                 )}
                 
                 {stockInsuficienteAcomp && (
@@ -203,11 +216,14 @@ const ModalProducto = ({ producto, carrito, onClose, onConfirm }) => {
               <button 
                 onClick={handleConfirm} 
                 className="btn btn-primary modal-btn-agregar"
-                // Deshabilitamos si hay problemas de stock en producto O acompañamiento seleccionado
-                disabled={stockInsuficienteProd || stockInsuficienteAcomp}
+                disabled={
+                  stockInsuficienteProd || 
+                  stockInsuficienteAcomp || 
+                  (opcionesDisponibles.length > 0 && !acompanamientoId) // Nueva condición
+                }
               >
                 ➕ Agregar al Pedido
-              </button>
+            </button>
             </div>
           </div>
         </div>

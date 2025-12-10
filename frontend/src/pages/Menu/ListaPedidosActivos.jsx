@@ -179,8 +179,13 @@ const ListaPedidosActivos = () => {
                               </div>
                             )}
                           </div>
-                          <div className={`item-estado estado-${item.estado.toLowerCase().replace(' ', '-')}`}>
-                            {item.estado === 'Listo' ? '✅' : item.estado === 'En Preparación' ? '🔥' : '⏳'}
+                          <div className="item-info" style={{ textAlign: 'right', minWidth: 'fit-content' }}>
+                            <div className={`item-estado estado-${item.estado.toLowerCase().replace(' ', '-')}`}>
+                              {item.estado === 'Listo' ? '✅' : item.estado === 'En Preparación' ? '🔥' : '⏳'}
+                            </div>
+                            <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                              ${(item.precio * item.cantidad).toFixed(2)}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -203,6 +208,18 @@ const ListaPedidosActivos = () => {
                           ✅ {estados.listo} listo{estados.listo > 1 ? 's' : ''}
                         </span>
                       )}
+                      
+                      {/* Total visible en el detalle expandido también */}
+                      <span className="badge" style={{ 
+                        marginLeft: 'auto', 
+                        background: 'var(--success)', 
+                        color: 'white',
+                        fontSize: '1rem',
+                        fontWeight: '700',
+                        padding: '0.5rem 0.75rem'
+                      }}>
+                        Total: ${totalPedido.toFixed(2)}
+                      </span>
                     </div>
                   </div>
                 )}
