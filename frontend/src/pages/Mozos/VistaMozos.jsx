@@ -1,34 +1,23 @@
 import { useState, useEffect } from 'react';
+import { Search, Grid, List, Filter, X } from 'lucide-react';
 import api from '../../services/api';
 import './VistaMozos.css';
 
 const VistaMozos = () => {
   const [productos, setProductos] = useState([]);
-  const [filtrados, setFiltrados] = useState([]);
-  const [categorias, setCategorias] = useState([]);
-  const [filtroActual, setFiltroActual] = useState('todos');
   const [busqueda, setBusqueda] = useState('');
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('Todos');
+  const [vistaGrid, setVistaGrid] = useState(true);
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [darkMode, setDarkMode] = useState(localStorage.getItem('theme') === 'dark');
-  const [ultimoUpdate, setUltimoUpdate] = useState('');
 
-  // Cargar datos iniciales
+  // Cargar datos desde tu API
   const cargarInventario = async () => {
     setLoading(true);
     try {
       const res = await api.get('/productos');
       const prodsActivos = res.data.productos.filter(p => p.stock > 0);
-      
       setProductos(prodsActivos);
-      
-      // Extraer categorías únicas
-      const cats = [...new Set(prodsActivos.map(p => p.categoria_nombre))].sort();
-      setCategorias(cats);
-      
-      // Actualizar hora
-      const d = new Date();
-      setUltimoUpdate(`${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`);
-      
     } catch (error) {
       console.error("Error cargando inventario:", error);
     } finally {
@@ -38,231 +27,221 @@ const VistaMozos = () => {
 
   useEffect(() => {
     cargarInventario();
-    // Auto-refresh cada 2 minutos
-    const interval = setInterval(cargarInventario, 120000);
+    const interval = setInterval(cargarInventario, 120000); // Auto-refresh cada 2 minutos
     return () => clearInterval(interval);
   }, []);
 
-  // Aplicar filtros
-  useEffect(() => {
-    let resultado = productos;
+  // Extraer categorías únicas
+  const categorias = ['Todos', ...new Set(productos.map(p => p.categoria_nombre))];
 
-    // Filtro de Texto
-    if (busqueda) {
-      const termino = busqueda.toLowerCase();
-      resultado = resultado.filter(p => 
-        p.nombre.toLowerCase().includes(termino) || 
-        (p.descripcion && p.descripcion.toLowerCase().includes(termino))
-      );
-    }
+  // Filtrar productos
+  const productosFiltrados = productos.filter(p => {
+    const matchBusqueda = p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+                          (p.descripcion && p.descripcion.toLowerCase().includes(busqueda.toLowerCase()));
+    const matchCategoria = categoriaSeleccionada === 'Todos' || p.categoria_nombre === categoriaSeleccionada;
+    return matchBusqueda && matchCategoria;
+  });
 
-    // Filtro de Categoría
-    if (filtroActual === 'bajo') {
-      resultado = resultado.filter(p => p.stock < 5);
-    } else if (filtroActual !== 'todos') {
-      resultado = resultado.filter(p => p.categoria_nombre === filtroActual);
-    }
+  // Helper para iconos de categorías
+  const getCategoryIcon = (categoria) => {
+    const icons = {
+      'Bebidas': '🥤',
+      'Cafés': '☕',
+      'Comidas': '🍽️',
+      'Desayunos': '🥐',
+      'Postres': '🍰',
+      'Dulces': '🧁',
+      'Snacks': '🍿',
+      'Ensaladas': '🥗',
+      'Sandwiches': '🥪',
+      'Pastas': '🍝'
+    };
+    return icons[categoria] || '🍴';
+  };
 
-    // Ordenamiento: Stock bajo primero, luego por categoría
-    resultado.sort((a, b) => {
-      if (a.stock < 5 && b.stock >= 5) return -1;
-      if (a.stock >= 5 && b.stock < 5) return 1;
-      return (a.categoria_nombre || '').localeCompare(b.categoria_nombre || '');
-    });
-
-    setFiltrados(resultado);
-  }, [productos, filtroActual, busqueda]);
-
-  // Manejo del Modo Oscuro
-  useEffect(() => {
-    if (darkMode) {
-      document.body.classList.add('dark-mode');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.body.classList.remove('dark-mode');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [darkMode]);
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50/30 to-amber-50/40 flex items-center justify-center">
+        <div className="text-center">
+          <div className="loading-spinner mx-auto mb-4"></div>
+          <p className="text-lg font-semibold text-slate-700">Cargando menú...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="mozos-container">
-      <div className="mozos-content">
-        
-        {/* HEADER PREMIUM */}
-        <div className="mozos-header">
-          <div className="mozos-header-content">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50/30 to-amber-50/40">
+      {/* Header moderno con efecto glassmorphism */}
+      <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 border-b border-orange-100/50 shadow-lg shadow-orange-500/5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between mb-4">
             <div>
-              <h1>
-                <span className="mozos-header-emoji">🤵</span> 
-                Stock para Mozos
+              <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 bg-clip-text text-transparent">
+                Nuestro Menú
               </h1>
+              <p className="text-sm text-slate-600 mt-1">Descubrí nuestros deliciosos platos</p>
             </div>
-            <div className="mozos-header-info">
-              <div className="mozos-update-time">
-                <div className="mozos-live-dot"></div>
-                <span>Actualizado: {ultimoUpdate}</span>
-              </div>
-              <div className="mozos-actions">
-                <button 
-                  className="icon-btn" 
-                  onClick={() => setDarkMode(!darkMode)} 
-                  title={darkMode ? "Modo Claro" : "Modo Oscuro"}
-                >
-                  {darkMode ? '☀️' : '🌙'}
-                </button>
-                <button 
-                  className="icon-btn" 
-                  onClick={cargarInventario} 
-                  title="Recargar inventario"
-                >
-                  🔄
-                </button>
-              </div>
+            
+            {/* Botones de vista */}
+            <div className="hidden sm:flex gap-2 bg-slate-100 p-1 rounded-xl">
+              <button
+                onClick={() => setVistaGrid(true)}
+                className={`p-2.5 rounded-lg transition-all ${
+                  vistaGrid 
+                    ? 'bg-white shadow-md text-orange-600' 
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                <Grid size={20} />
+              </button>
+              <button
+                onClick={() => setVistaGrid(false)}
+                className={`p-2.5 rounded-lg transition-all ${
+                  !vistaGrid 
+                    ? 'bg-white shadow-md text-orange-600' 
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                <List size={20} />
+              </button>
             </div>
           </div>
-        </div>
 
-        {/* CHIPS DE FILTRO */}
-        <div className="chips-wrapper">
-          <div className="chips-container">
-            <div 
-              className={`chip ${filtroActual === 'todos' ? 'active' : ''}`}
-              onClick={() => setFiltroActual('todos')}
-            >
-              ✨ Todos
-            </div>
-            <div 
-              className={`chip ${filtroActual === 'bajo' ? 'active' : ''}`}
-              onClick={() => setFiltroActual('bajo')}
-            >
-              ⚠️ Stock Bajo
-            </div>
-            {categorias.map(cat => (
-              <div 
-                key={cat}
-                className={`chip ${filtroActual === cat ? 'active' : ''}`}
-                onClick={() => setFiltroActual(cat)}
+          {/* Barra de búsqueda moderna */}
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            <input
+              type="text"
+              placeholder="Buscar platos, ingredientes..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-slate-200 focus:border-orange-400 focus:ring-4 focus:ring-orange-100 outline-none transition-all bg-white shadow-sm"
+            />
+            {busqueda && (
+              <button
+                onClick={() => setBusqueda('')}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
-                {getCategoryIcon(cat)} {cat}
-              </div>
+                <X size={20} />
+              </button>
+            )}
+          </div>
+
+          {/* Botón de filtros (móvil) */}
+          <button
+            onClick={() => setMostrarFiltros(!mostrarFiltros)}
+            className="sm:hidden mt-3 w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl font-semibold shadow-lg shadow-orange-500/25"
+          >
+            <Filter size={18} />
+            Filtrar por categoría
+          </button>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Filtros de categoría con scroll horizontal */}
+        <div className={`mb-8 ${mostrarFiltros ? 'block' : 'hidden sm:block'}`}>
+          <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
+            {categorias.map(cat => (
+              <button
+                key={cat}
+                onClick={() => {
+                  setCategoriaSeleccionada(cat);
+                  setMostrarFiltros(false);
+                }}
+                className={`flex-shrink-0 px-6 py-3 rounded-full font-semibold transition-all ${
+                  categoriaSeleccionada === cat
+                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/30 scale-105'
+                    : 'bg-white text-slate-700 border-2 border-slate-200 hover:border-orange-300 hover:shadow-md'
+                }`}
+              >
+                {cat}
+              </button>
             ))}
           </div>
         </div>
 
-        {/* BUSCADOR */}
-        <div style={{ position: 'relative' }}>
-          <span style={{ 
-            position: 'absolute', 
-            left: '1.25rem', 
-            top: '50%', 
-            transform: 'translateY(-50%)',
-            fontSize: '1.25rem',
-            pointerEvents: 'none',
-            zIndex: 1
-          }}>
-          </span>
-          <input 
-            type="text" 
-            className="search-box-mozo" 
-            placeholder="Buscar plato, ingrediente o descripción..." 
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-          />
+        {/* Contador de resultados */}
+        <div className="mb-6 flex items-center justify-between">
+          <p className="text-slate-600 font-medium">
+            {productosFiltrados.length} {productosFiltrados.length === 1 ? 'plato' : 'platos'} disponibles
+          </p>
         </div>
 
-        {/* CONTADOR CON BADGE */}
-        <div className="mozos-count">
-          <span className="mozos-count-text">
-            {filtroActual === 'todos' ? 'Productos disponibles' : 
-             filtroActual === 'bajo' ? 'Con stock bajo' : 
-             `En ${filtroActual}`}
-          </span>
-          <span className="mozos-count-badge">
-            {filtrados.length}
-          </span>
-        </div>
-
-        {/* LISTA DE PRODUCTOS */}
-        {loading ? (
-          <div className="mozos-loading">
-            <div className="loading-spinner"></div>
-            <p style={{ fontSize: '1.125rem', fontWeight: 600 }}>Cargando inventario...</p>
+        {/* Grid/Lista de productos */}
+        {productosFiltrados.length === 0 ? (
+          <div className="text-center py-20">
+            <div className="text-6xl mb-4 opacity-30">🔍</div>
+            <h3 className="text-2xl font-bold text-slate-800 mb-2">No encontramos resultados</h3>
+            <p className="text-slate-600">Intentá con otra búsqueda o categoría</p>
           </div>
         ) : (
-          <div>
-            {filtrados.length === 0 && (
-              <div className="mozos-vacio">
-                <div className="vacio-icon">🔍</div>
-                <p style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-                  No se encontraron productos
-                </p>
-                <p style={{ fontSize: '0.9375rem', opacity: 0.7 }}>
-                  Intenta con otro término de búsqueda o categoría
-                </p>
-              </div>
-            )}
+          <div className={vistaGrid 
+            ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6' 
+            : 'flex flex-col gap-4'
+          }>
+            {productosFiltrados.map((producto, idx) => (
+              <div
+                key={producto.id}
+                style={{ animationDelay: `${idx * 0.05}s` }}
+                className={`group bg-white rounded-3xl overflow-hidden border-2 border-slate-100 hover:border-orange-200 hover:shadow-2xl hover:shadow-orange-500/10 transition-all duration-300 hover:-translate-y-2 animate-fadeInUp ${
+                  !vistaGrid ? 'flex gap-4 p-4' : ''
+                }`}
+              >
+                {/* Imagen/Emoji */}
+                <div className={`bg-gradient-to-br from-orange-100 via-amber-50 to-orange-50 flex items-center justify-center ${
+                  vistaGrid ? 'h-48' : 'w-32 h-32 rounded-2xl flex-shrink-0'
+                }`}>
+                  <span className="text-6xl group-hover:scale-110 transition-transform duration-300">
+                    {getCategoryIcon(producto.categoria_nombre)}
+                  </span>
+                </div>
 
-            {filtrados.map((p, index) => {
-              // Mostrar separador de categoría
-              const mostrarSeparador = filtroActual === 'todos' && 
-                (index === 0 || filtrados[index - 1].categoria_nombre !== p.categoria_nombre);
-
-              return (
-                <div key={p.id}>
-                  {mostrarSeparador && (
-                    <div className="category-separator">
-                      {getCategoryIcon(p.categoria_nombre)} {p.categoria_nombre || 'Varios'}
-                    </div>
-                  )}
-                  
-                  <div className={`card-producto ${p.stock < 5 ? 'stock-low' : 'stock-ok'}`}>
-                    <div className="card-header">
-                      <h3 className="item-name">{p.nombre}</h3>
-                      <span className="item-price">${p.precio}</span>
-                    </div>
-                    
-                    {p.descripcion && (
-                      <p className="ingredients">{p.descripcion}</p>
+                {/* Contenido */}
+                <div className={vistaGrid ? 'p-5' : 'flex-1 flex flex-col justify-center'}>
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="text-xl font-bold text-slate-800 group-hover:text-orange-600 transition-colors">
+                      {producto.nombre}
+                    </h3>
+                    {producto.stock < 5 && (
+                      <span className="flex-shrink-0 ml-2 px-2 py-1 bg-red-100 text-red-600 text-xs font-bold rounded-full">
+                        Últimas unidades
+                      </span>
                     )}
+                  </div>
+
+                  {producto.descripcion && (
+                    <p className="text-slate-600 text-sm mb-4 line-clamp-2">
+                      {producto.descripcion}
+                    </p>
+                  )}
+
+                  <div className="flex items-center justify-between mt-auto">
+                    <span className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+                      ${producto.precio}
+                    </span>
                     
-                    <div className="card-footer">
-                      {p.stock < 5 ? (
-                        <span className="stock-badge badge-low">
-                          ⚠️ Quedan {p.stock}
-                        </span>
-                      ) : (
-                        <span className="stock-badge badge-ok">
-                          ✓ {p.stock} disponibles
-                        </span>
-                      )}
-                    </div>
+                    <span className="text-xs text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full font-semibold">
+                      {producto.categoria_nombre}
+                    </span>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         )}
-      </div>
+      </main>
+
+      {/* Footer simple */}
+      <footer className="mt-20 py-8 border-t border-slate-200 bg-white/50 backdrop-blur">
+        <div className="max-w-7xl mx-auto px-4 text-center text-slate-600">
+          <p className="font-medium">¿Tenés alguna alergia o preferencia alimentaria?</p>
+          <p className="text-sm mt-1">Consultá con nuestro personal, estaremos encantados de ayudarte</p>
+        </div>
+      </footer>
     </div>
   );
-};
-
-// Helper para iconos de categorías
-const getCategoryIcon = (categoria) => {
-  const icons = {
-    'Bebidas': '☕',
-    'Cafés': '☕',
-    'Comidas': '🍽️',
-    'Desayunos': '🥐',
-    'Postres': '🍰',
-    'Dulces': '🧁',
-    'Snacks': '🍿',
-    'Ensaladas': '🥗',
-    'Sandwiches': '🥪',
-    'Pastas': '🍝'
-  };
-  
-  return icons[categoria] || '🍴';
 };
 
 export default VistaMozos;
