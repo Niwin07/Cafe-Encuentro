@@ -73,9 +73,19 @@ const MenuCajera = () => {
     setCarrito(carrito.filter(item => item.tempId !== tempId));
   };
 
-  const confirmarPedido = async () => {
+    const confirmarPedido = async () => {
     if (!cliente.trim()) return alert('⚠️ Falta nombre del cliente');
     if (carrito.length === 0) return alert('⚠️ Carrito vacío');
+    
+    // Validar que todos los items tengan acompañamiento si es requerido
+    const itemsSinAcomp = carrito.filter(item => 
+      item.acompanamiento_id === null || item.acompanamiento_id === undefined
+    );
+    
+    if (itemsSinAcomp.length > 0) {
+      const productossinAcomp = itemsSinAcomp.map(i => i.nombre).join(', ');
+      return alert(`⚠️ Los siguientes productos requieren acompañamiento: ${productossinAcomp}`);
+    }
     
     setProcesando(true);
     try {

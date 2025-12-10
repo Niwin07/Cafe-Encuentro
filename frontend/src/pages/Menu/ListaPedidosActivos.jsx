@@ -113,6 +113,9 @@ const ListaPedidosActivos = () => {
               listo: items.filter(i => i.estado === 'Listo').length
             };
             
+            // Calcular total del pedido
+            const totalPedido = items.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
+            
             return (
               <div 
                 key={id} 
@@ -132,8 +135,13 @@ const ListaPedidosActivos = () => {
                       👤 {cajera}
                     </div>
                   </div>
-                  <div className="pedido-badge">
-                    #{id.slice(-4)}
+                  <div className="pedido-badge-container">
+                    <div className="pedido-badge">
+                      #{id.slice(-4)}
+                    </div>
+                    <div className="pedido-total">
+                      ${totalPedido.toFixed(2)}
+                    </div>
                   </div>
                 </div>
 
