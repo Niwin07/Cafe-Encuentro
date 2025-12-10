@@ -1,6 +1,12 @@
 /* frontend/src/index.css */
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Poppins:wght@300;400;500;600&display=swap');
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ... resto de tu CSS existente ... */
+
 :root {
   /* Paleta de Colores Café "Premium" */
   --primary: #8b5a3c;
@@ -137,3 +143,7 @@ input:focus, select:focus, textarea:focus {
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out forwards;
 }
+
+
+
+/* ... resto de tu CSS existente ... */
