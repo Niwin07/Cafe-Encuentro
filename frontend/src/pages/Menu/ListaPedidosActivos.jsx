@@ -113,8 +113,12 @@ const ListaPedidosActivos = () => {
               listo: items.filter(i => i.estado === 'Listo').length
             };
             
-            // Calcular total del pedido
-            const totalPedido = items.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
+            // Calcular total del pedido CON VALIDACIÓN
+            const totalPedido = items.reduce((sum, item) => {
+              const precio = parseFloat(item.precio) || 0;
+              const cantidad = parseInt(item.cantidad) || 0;
+              return sum + (precio * cantidad);
+            }, 0);
             
             return (
               <div 
@@ -162,33 +166,39 @@ const ListaPedidosActivos = () => {
                 {isExpanded && (
                   <div className="pedido-detalle animate-fade-in">
                     <div className="pedido-items">
-                      {items.map((item, idx) => (
-                        <div key={idx} className="pedido-item">
-                          <div className="item-info">
-                            <div className="item-nombre">
-                              <strong>{item.cantidad}×</strong> {item.producto_nombre}
-                            </div>
-                            {item.acompanamiento_nombre && (
-                              <div className="item-acomp">
-                                + {item.acompanamiento_nombre}
+                      {items.map((item, idx) => {
+                        const precioItem = parseFloat(item.precio) || 0;
+                        const cantidadItem = parseInt(item.cantidad) || 0;
+                        const subtotalItem = precioItem * cantidadItem;
+                        
+                        return (
+                          <div key={idx} className="pedido-item">
+                            <div className="item-info">
+                              <div className="item-nombre">
+                                <strong>{item.cantidad}×</strong> {item.producto_nombre}
                               </div>
-                            )}
-                            {item.instrucciones_especiales && (
-                              <div className="item-nota">
-                                📝 {item.instrucciones_especiales}
+                              {item.acompanamiento_nombre && (
+                                <div className="item-acomp">
+                                  + {item.acompanamiento_nombre}
+                                </div>
+                              )}
+                              {item.instrucciones_especiales && (
+                                <div className="item-nota">
+                                  📝 {item.instrucciones_especiales}
+                                </div>
+                              )}
+                            </div>
+                            <div className="item-info" style={{ textAlign: 'right', minWidth: 'fit-content' }}>
+                              <div className={`item-estado estado-${item.estado.toLowerCase().replace(' ', '-')}`}>
+                                {item.estado === 'Listo' ? '✅' : item.estado === 'En Preparación' ? '🔥' : '⏳'}
                               </div>
-                            )}
-                          </div>
-                          <div className="item-info" style={{ textAlign: 'right', minWidth: 'fit-content' }}>
-                            <div className={`item-estado estado-${item.estado.toLowerCase().replace(' ', '-')}`}>
-                              {item.estado === 'Listo' ? '✅' : item.estado === 'En Preparación' ? '🔥' : '⏳'}
-                            </div>
-                            <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                              ${(item.precio * item.cantidad).toFixed(2)}
+                              <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                                ${subtotalItem.toFixed(2)}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
 
                     {/* Resumen de estados */}
