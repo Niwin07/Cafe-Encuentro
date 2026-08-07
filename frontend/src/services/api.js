@@ -1,7 +1,10 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://cafe-encuentro.onrender.com/api',
+  // En dev pega al backend local (npm run dev); en Vercel /api es el mismo
+  // dominio (frontend/api/index.cjs), así que no hace falta URL absoluta
+  // ni CORS.
+  baseURL: import.meta.env.DEV ? 'http://localhost:5000/api' : '/api',
   headers: {
     'Content-Type': 'application/json',
   },
