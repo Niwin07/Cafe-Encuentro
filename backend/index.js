@@ -17,7 +17,7 @@ app.use(sanitizar); // ⭐ Sanitizar todos los datos de entrada
 
 // Ruta raíz
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     mensaje: '🍕 API Café El Encuentro',
     version: '1.0.0',
     endpoints: {
@@ -40,7 +40,11 @@ app.use(notFound); // ⭐ Nuevo
 // Middleware de manejo de errores (debe ir al final)
 app.use(errorHandler);
 
-// Iniciar servidor
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-});
+// Iniciar servidor (solo en local — en Vercel no hace falta, Vercel invoca el handler directo)
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;

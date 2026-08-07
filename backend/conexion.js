@@ -8,7 +8,7 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: 3, // Bajado de 10: en serverless cada instancia abre su propio pool
   queueLimit: 0,
   ssl: {
     rejectUnauthorized: false
