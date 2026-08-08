@@ -18,7 +18,23 @@ try {
   console.error('CLOUDINARY_URL está mal formada:', error.message);
 }
 
-const ESTILO_FOTO = 'fotografía profesional de comida para menú de café, apetitosa, bien iluminada, fondo neutro, alta calidad, sin texto, sin logos, sin personas';
+const ESTILO_FOTO = 'professional product photography, appetizing, single item centered on a plain background, studio lighting, high detail, no text, no watermark, no logo, no people';
+
+/**
+ * Traduce texto al inglés con una API gratuita (el modelo de imágenes
+ * responde mucho mejor en inglés que en español). Si falla, devuelve el
+ * texto original para no bloquear la generación de la imagen.
+ */
+const traducirAIngles = async (texto) => {
+  try {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(texto)}&langpair=es|en`;
+    const respuesta = await fetch(url);
+    const data = await respuesta.json();
+    return data?.responseData?.translatedText || texto;
+  } catch {
+    return texto;
+  }
+};
 
 /**
  * Genera una imagen con Pollinations.ai (gratuito) a partir de un prompt
@@ -31,7 +47,8 @@ const generarYGuardarImagen = async ({ productoId, nombre, descripcion }) => {
     throw new Error('Cloudinary no está configurado correctamente (revisar CLOUDINARY_URL en las variables de entorno)');
   }
 
-  const promptBase = [nombre, descripcion].filter(Boolean).join(', ');
+  const promptBaseEs = [nombre, descripcion].filter(Boolean).join(', ');
+  const promptBase = await traducirAIngles(promptBaseEs);
   const prompt = `${promptBase}, ${ESTILO_FOTO}`;
 
   const params = new URLSearchParams({
