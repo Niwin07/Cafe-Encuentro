@@ -25,7 +25,6 @@ const AdminPanel = () => {
   const [creandoAcomp, setCreandoAcomp] = useState(false);
 
   // Generación de imagen con IA
-  const [imagenReferenciaUrl, setImagenReferenciaUrl] = useState('');
   const [generandoImagen, setGenerandoImagen] = useState(false);
 
   const [filtroAcomp, setFiltroAcomp] = useState('');
@@ -143,16 +142,13 @@ const AdminPanel = () => {
     setEditingItem(item || {});
     setShowModal(true);
     setFiltroAcomp('');
-    setImagenReferenciaUrl('');
   };
 
   const handleGenerarImagen = async () => {
     if (!editingItem?.id) return;
     setGenerandoImagen(true);
     try {
-      const res = await api.post(`/productos/${editingItem.id}/generar-imagen`, {
-        imagen_referencia_url: imagenReferenciaUrl || undefined
-      });
+      const res = await api.post(`/productos/${editingItem.id}/generar-imagen`);
       setEditingItem({ ...editingItem, imagen_url: res.data.imagen_url });
     } catch (error) {
       alert('Error al generar la imagen: ' + (error.response?.data?.mensaje || error.message));
@@ -300,13 +296,8 @@ const AdminPanel = () => {
                             {editingItem?.imagen_url && (
                               <img src={editingItem.imagen_url} alt="Vista previa" className="admin-imagen-preview" />
                             )}
-                            <input
-                                placeholder="URL de imagen de referencia (opcional)"
-                                value={imagenReferenciaUrl}
-                                onChange={e => setImagenReferenciaUrl(e.target.value)}
-                            />
                             <small style={{fontSize:'0.7rem', color:'#666', marginTop:'2px', display: 'block'}}>
-                                Se genera a partir del nombre y la descripción. Si pegás una URL de imagen de referencia, la IA la usa como guía.
+                                Se genera automáticamente a partir del nombre y la descripción.
                             </small>
                             <button
                                 type="button"

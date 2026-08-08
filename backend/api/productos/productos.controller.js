@@ -218,12 +218,10 @@ const actualizar = async (req, res, next) => {
 /**
  * Generar (con IA) y guardar la imagen de un producto (protegido)
  * POST /api/productos/:id/generar-imagen
- * Body opcional: { imagen_referencia_url }
  */
 const generarImagen = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { imagen_referencia_url } = req.body;
 
     const producto = await productosModel.obtenerPorId(id);
     if (!producto) {
@@ -236,8 +234,7 @@ const generarImagen = async (req, res, next) => {
     const imagenUrl = await generarYGuardarImagen({
       productoId: producto.id,
       nombre: producto.nombre,
-      descripcion: producto.descripcion,
-      imagenReferenciaUrl: imagen_referencia_url
+      descripcion: producto.descripcion
     });
 
     await productosModel.actualizarImagen(id, imagenUrl);

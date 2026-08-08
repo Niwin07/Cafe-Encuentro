@@ -21,12 +21,12 @@ try {
 const ESTILO_FOTO = 'fotografía profesional de comida para menú de café, apetitosa, bien iluminada, fondo neutro, alta calidad, sin texto, sin logos, sin personas';
 
 /**
- * Genera una imagen con Pollinations.ai (gratuito) a partir de un prompt,
- * opcionalmente guiada por una imagen de referencia, y la sube a Cloudinary
- * para que quede alojada de forma permanente (Pollinations no garantiza
- * persistencia ni disponibilidad de la URL a largo plazo).
+ * Genera una imagen con Pollinations.ai (gratuito) a partir de un prompt
+ * y la sube a Cloudinary para que quede alojada de forma permanente
+ * (Pollinations no garantiza persistencia ni disponibilidad de la URL
+ * a largo plazo).
  */
-const generarYGuardarImagen = async ({ productoId, nombre, descripcion, imagenReferenciaUrl }) => {
+const generarYGuardarImagen = async ({ productoId, nombre, descripcion }) => {
   if (!cloudinary.config().api_key) {
     throw new Error('Cloudinary no está configurado correctamente (revisar CLOUDINARY_URL en las variables de entorno)');
   }
@@ -38,16 +38,9 @@ const generarYGuardarImagen = async ({ productoId, nombre, descripcion, imagenRe
     width: '800',
     height: '800',
     nologo: 'true',
+    model: 'flux',
     seed: String(Math.floor(Math.random() * 2147483647))
   });
-
-  if (imagenReferenciaUrl) {
-    // El modelo "kontext" soporta imagen de referencia vía el parámetro "image"
-    params.set('model', 'kontext');
-    params.set('image', imagenReferenciaUrl);
-  } else {
-    params.set('model', 'flux');
-  }
 
   const urlPollinations = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?${params.toString()}`;
 
