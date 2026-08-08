@@ -38,7 +38,7 @@ const generarYGuardarImagen = async ({ productoId, nombre, descripcion, imagenRe
     width: '800',
     height: '800',
     nologo: 'true',
-    seed: String(Date.now())
+    seed: String(Math.floor(Math.random() * 2147483647))
   });
 
   if (imagenReferenciaUrl) {
