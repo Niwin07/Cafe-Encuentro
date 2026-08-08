@@ -150,6 +150,20 @@
   font-size: 0.65rem;
 }
 
+.producto-imagen {
+  width: 100%;
+  height: 90px;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.producto-imagen img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .producto-nombre {
   font-size: 1.05rem;
   margin-bottom: 0.25rem;

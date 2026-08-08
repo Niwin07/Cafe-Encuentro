@@ -24,6 +24,10 @@ const AdminPanel = () => {
   const [nuevoAcompCategoria, setNuevoAcompCategoria] = useState('Bebida');
   const [creandoAcomp, setCreandoAcomp] = useState(false);
 
+  // Generación de imagen con IA
+  const [imagenReferenciaUrl, setImagenReferenciaUrl] = useState('');
+  const [generandoImagen, setGenerandoImagen] = useState(false);
+
   const [filtroAcomp, setFiltroAcomp] = useState('');
 
   useEffect(() => { cargarDatos(); }, [activeTab]);
@@ -139,6 +143,22 @@ const AdminPanel = () => {
     setEditingItem(item || {});
     setShowModal(true);
     setFiltroAcomp('');
+    setImagenReferenciaUrl('');
+  };
+
+  const handleGenerarImagen = async () => {
+    if (!editingItem?.id) return;
+    setGenerandoImagen(true);
+    try {
+      const res = await api.post(`/productos/${editingItem.id}/generar-imagen`, {
+        imagen_referencia_url: imagenReferenciaUrl || undefined
+      });
+      setEditingItem({ ...editingItem, imagen_url: res.data.imagen_url });
+    } catch (error) {
+      alert('Error al generar la imagen: ' + (error.response?.data?.mensaje || error.message));
+    } finally {
+      setGenerandoImagen(false);
+    }
   };
 
   const tabs = [
@@ -190,16 +210,25 @@ const AdminPanel = () => {
                 {data.map(item => (
                   <tr key={item.id}>
                     <td>
-                      <div className="admin-item-nombre">
-                        {item.nombre} 
-                        {/* Mostrar indicador si está vinculado */}
-                        {item.producto_vinculado_id && (
-                            <span style={{fontSize:'0.7rem', color:'#8b5a3c', marginLeft:'5px'}}>
-                                (🔗 Vinculado)
-                            </span>
+                      <div className="admin-item-row">
+                        {activeTab === 'productos' && (
+                          item.imagen_url
+                            ? <img src={item.imagen_url} alt="" className="admin-item-thumb" />
+                            : <div className="admin-item-thumb admin-item-thumb-vacio">🖼️</div>
                         )}
+                        <div>
+                          <div className="admin-item-nombre">
+                            {item.nombre}
+                            {/* Mostrar indicador si está vinculado */}
+                            {item.producto_vinculado_id && (
+                                <span style={{fontSize:'0.7rem', color:'#8b5a3c', marginLeft:'5px'}}>
+                                    (🔗 Vinculado)
+                                </span>
+                            )}
+                          </div>
+                          {item.descripcion && <div className="admin-item-desc">{item.descripcion}</div>}
+                        </div>
                       </div>
-                      {item.descripcion && <div className="admin-item-desc">{item.descripcion}</div>}
                     </td>
                     
                     {activeTab === 'productos' && (
@@ -262,6 +291,40 @@ const AdminPanel = () => {
                         <label className="admin-form-label">Descripción</label>
                         <textarea name="descripcion" defaultValue={editingItem?.descripcion} rows="3" />
                     </div>
+
+                    <div className="admin-form-group admin-imagen-ia">
+                        <label className="admin-form-label">🖼️ Imagen del producto (generada con IA)</label>
+
+                        {editingItem?.id ? (
+                          <>
+                            {editingItem?.imagen_url && (
+                              <img src={editingItem.imagen_url} alt="Vista previa" className="admin-imagen-preview" />
+                            )}
+                            <input
+                                placeholder="URL de imagen de referencia (opcional)"
+                                value={imagenReferenciaUrl}
+                                onChange={e => setImagenReferenciaUrl(e.target.value)}
+                            />
+                            <small style={{fontSize:'0.7rem', color:'#666', marginTop:'2px', display: 'block'}}>
+                                Se genera a partir del nombre y la descripción. Si pegás una URL de imagen de referencia, la IA la usa como guía.
+                            </small>
+                            <button
+                                type="button"
+                                onClick={handleGenerarImagen}
+                                disabled={generandoImagen}
+                                className="btn btn-sm btn-secondary"
+                                style={{marginTop: '0.5rem'}}
+                            >
+                                {generandoImagen ? '✨ Generando...' : (editingItem?.imagen_url ? '🔄 Regenerar imagen' : '✨ Generar imagen')}
+                            </button>
+                          </>
+                        ) : (
+                          <small style={{fontSize:'0.75rem', color:'#666'}}>
+                              Guardá el producto primero; después podés generarle una imagen desde "Editar".
+                          </small>
+                        )}
+                    </div>
+
                     <div className="admin-form-row">
                       <div className="admin-form-group">
                         <label className="admin-form-label">💵 Precio</label>

@@ -115,6 +115,14 @@
   color: var(--cafe-oscuro);
 }
 
+.modal-imagen {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  margin-bottom: 1.5rem;
+}
+
 /* ========== PRECIO ========== */
 .modal-precio-section {
   display: flex;

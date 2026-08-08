@@ -250,6 +250,12 @@ const MenuCajera = () => {
                   </div>
                 )}
                 
+                {prod.imagen_url && (
+                  <div className="producto-imagen">
+                    <img src={prod.imagen_url} alt={prod.nombre} loading="lazy" />
+                  </div>
+                )}
+
                 <div>
                   <h4 className="producto-nombre">{prod.nombre}</h4>
                   <p className="producto-stock">Stock: {prod.stock}</p>

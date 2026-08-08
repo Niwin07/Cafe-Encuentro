@@ -111,6 +111,13 @@ const ModalProducto = ({ producto, carrito, onClose, onConfirm }) => {
           </div>
 
           <div className="modal-body">
+            {producto.imagen_url && (
+              <img
+                src={producto.imagen_url}
+                alt={producto.nombre}
+                className="modal-imagen"
+              />
+            )}
             <div className="modal-precio-section">
               <span className="modal-precio-label">Precio unitario</span>
               <span className="modal-precio">${producto.precio}</span>

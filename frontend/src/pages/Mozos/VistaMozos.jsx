@@ -231,9 +231,18 @@ const VistaMozos = () => {
                 style={{ '--index': idx }}
               >
                 <div className="product-media">
-                  <div className="product-icon">
-                    {getCategoryIcon(producto.categoria_nombre)}
-                  </div>
+                  {producto.imagen_url ? (
+                    <img
+                      src={producto.imagen_url}
+                      alt={producto.nombre}
+                      className="product-img"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="product-icon">
+                      {getCategoryIcon(producto.categoria_nombre)}
+                    </div>
+                  )}
                   {producto.stock < 10 && (
                     <div className="product-badge">
                       <span className="badge-dot"></span>

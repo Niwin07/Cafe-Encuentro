@@ -1,4 +1,5 @@
 const productosModel = require('./productos.model');
+const { generarYGuardarImagen } = require('./imagenIA.service');
 const { MENSAJES_ERROR, MENSAJES_EXITO } = require('../utils/constants');
 
 /**
@@ -61,6 +62,7 @@ const obtenerMenu = async (req, res, next) => {
           ingredientes: producto.ingredientes,
           precio: producto.precio,
           stock: producto.stock,
+          imagen_url: producto.imagen_url,
           categoria: {
             id: producto.categoria_id,
             nombre: producto.categoria_nombre
@@ -214,6 +216,43 @@ const actualizar = async (req, res, next) => {
 };
 
 /**
+ * Generar (con IA) y guardar la imagen de un producto (protegido)
+ * POST /api/productos/:id/generar-imagen
+ * Body opcional: { imagen_referencia_url }
+ */
+const generarImagen = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { imagen_referencia_url } = req.body;
+
+    const producto = await productosModel.obtenerPorId(id);
+    if (!producto) {
+      return res.status(404).json({
+        error: 'Producto no encontrado',
+        mensaje: MENSAJES_ERROR.PRODUCTO_NO_ENCONTRADO
+      });
+    }
+
+    const imagenUrl = await generarYGuardarImagen({
+      productoId: producto.id,
+      nombre: producto.nombre,
+      descripcion: producto.descripcion,
+      imagenReferenciaUrl: imagen_referencia_url
+    });
+
+    await productosModel.actualizarImagen(id, imagenUrl);
+
+    res.json({
+      mensaje: 'Imagen generada correctamente',
+      imagen_url: imagenUrl
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Actualizar stock de un producto (protegido)
  * PATCH /api/productos/:id/stock
  */
@@ -317,6 +356,7 @@ module.exports = {
   obtenerPorId,
   crear,
   actualizar,
+  generarImagen,
   actualizarStock,
   eliminar,
   obtenerStockBajo

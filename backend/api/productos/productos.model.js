@@ -13,6 +13,7 @@ const obtenerTodos = async (filtros = {}) => {
       p.precio,
       p.stock,
       p.stock_minimo,
+      p.imagen_url,
       p.activo,
       p.created_at,
       p.updated_at,
@@ -77,6 +78,7 @@ const obtenerPorId = async (id) => {
       p.precio,
       p.stock,
       p.stock_minimo,
+      p.imagen_url,
       p.activo,
       p.created_at,
       p.updated_at,
@@ -189,6 +191,10 @@ const actualizar = async (id, producto) => {
     campos.push('activo = ?');
     valores.push(producto.activo);
   }
+  if (producto.imagen_url !== undefined) {
+    campos.push('imagen_url = ?');
+    valores.push(producto.imagen_url);
+  }
 
   if (campos.length === 0) {
     throw new Error('No hay campos para actualizar');
@@ -199,6 +205,15 @@ const actualizar = async (id, producto) => {
   const query = `UPDATE productos SET ${campos.join(', ')} WHERE id = ?`;
   const [result] = await pool.query(query, valores);
   
+  return result.affectedRows > 0;
+};
+
+/**
+ * Actualizar solo la imagen de un producto
+ */
+const actualizarImagen = async (id, imagenUrl) => {
+  const query = `UPDATE productos SET imagen_url = ? WHERE id = ?`;
+  const [result] = await pool.query(query, [imagenUrl, id]);
   return result.affectedRows > 0;
 };
 
@@ -314,6 +329,7 @@ module.exports = {
   obtenerAcompanamientos,
   crear,
   actualizar,
+  actualizarImagen,
   actualizarStock,
   ajustarStock,
   eliminar,

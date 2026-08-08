@@ -396,3 +396,40 @@
   padding: 3rem;
   color: var(--text-muted);
 }
+
+/* ========== IMÁGENES ========== */
+.admin-item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.admin-item-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.admin-item-thumb-vacio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  font-size: 1.1rem;
+}
+
+.admin-imagen-ia {
+  border: 1px dashed #ccc;
+  border-radius: var(--radius-lg, 8px);
+  padding: 0.75rem;
+}
+
+.admin-imagen-preview {
+  width: 100%;
+  max-height: 160px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+}
