@@ -36,11 +36,38 @@ const traducirAIngles = async (texto) => {
   }
 };
 
+const HF_MODEL = 'stabilityai/stable-diffusion-3-medium-diffusers';
+
 /**
- * Genera una imagen con Pollinations.ai (gratuito) a partir de un prompt
- * y la sube a Cloudinary para que quede alojada de forma permanente
- * (Pollinations no garantiza persistencia ni disponibilidad de la URL
- * a largo plazo).
+ * Pide la imagen al modelo de Hugging Face (provider gratuito "hf-inference")
+ * y devuelve los bytes crudos (JPEG).
+ */
+const generarImagenHF = async (prompt) => {
+  if (!process.env.HF_TOKEN) {
+    throw new Error('HF_TOKEN no está configurada en las variables de entorno del servidor');
+  }
+
+  const respuesta = await fetch(`https://router.huggingface.co/hf-inference/models/${HF_MODEL}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.HF_TOKEN}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ inputs: prompt })
+  });
+
+  if (!respuesta.ok) {
+    const detalle = await respuesta.text();
+    throw new Error(`Hugging Face respondió ${respuesta.status}: ${detalle}`);
+  }
+
+  const arrayBuffer = await respuesta.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+};
+
+/**
+ * Genera una imagen con Hugging Face (gratuito) a partir de un prompt
+ * y la sube a Cloudinary para que quede alojada de forma permanente.
  */
 const generarYGuardarImagen = async ({ productoId, nombre, descripcion }) => {
   if (!cloudinary.config().api_key) {
@@ -51,18 +78,10 @@ const generarYGuardarImagen = async ({ productoId, nombre, descripcion }) => {
   const promptBase = await traducirAIngles(promptBaseEs);
   const prompt = `${promptBase}, ${ESTILO_FOTO}`;
 
-  const params = new URLSearchParams({
-    width: '800',
-    height: '800',
-    nologo: 'true',
-    model: 'flux',
-    seed: String(Math.floor(Math.random() * 2147483647))
-  });
+  const imagenBuffer = await generarImagenHF(prompt);
+  const base64 = imagenBuffer.toString('base64');
 
-  const urlPollinations = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?${params.toString()}`;
-
-  // Cloudinary descarga la imagen desde la URL y la aloja de forma permanente
-  const resultado = await cloudinary.uploader.upload(urlPollinations, {
+  const resultado = await cloudinary.uploader.upload(`data:image/jpeg;base64,${base64}`, {
     folder: 'cafe-encuentro/productos',
     public_id: `producto_${productoId}`,
     overwrite: true
