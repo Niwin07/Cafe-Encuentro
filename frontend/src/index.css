@@ -334,7 +334,8 @@ textarea {
   border-radius: var(--radius-md);
   background: var(--bg-secondary);
   font-family: 'Inter', sans-serif;
-  font-size: 0.9375rem;
+  /* 16px minimum: evita el auto-zoom de Safari iOS al enfocar un campo */
+  font-size: 1rem;
   color: var(--text-primary);
   transition: all var(--transition-base);
 }
@@ -522,16 +523,23 @@ label {
    RESPONSIVE
    ============================================ */
 @media (max-width: 768px) {
-  :root {
-    font-size: 14px;
-  }
-
   .card {
     padding: var(--spacing-md);
   }
 
   .btn {
     padding: 0.625rem 1.25rem;
+  }
+
+  /* Objetivos táctiles cómodos (~44px) en botones de solo ícono */
+  .btn-icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .btn-icon-sm {
+    width: 36px;
+    height: 36px;
   }
 }
 

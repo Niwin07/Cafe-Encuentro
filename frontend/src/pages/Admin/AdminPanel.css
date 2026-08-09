@@ -49,6 +49,8 @@
 /* ========== TABS DE NAVEGACIÓN ========== */
 .admin-tabs {
   display: flex;
+  width: 100%;
+  min-width: 0;
   background: white;
   border-bottom: 2px solid var(--border-light);
   padding: 0 1.5rem;
@@ -74,6 +76,7 @@
   transition: all var(--transition-base);
   color: var(--text-muted);
   white-space: nowrap;
+  flex-shrink: 0;
   font-size: 0.9375rem;
 }
 
@@ -396,12 +399,73 @@
     padding: 1rem;
   }
 
+  /* Tabla -> lista de tarjetas: mejor que scroll horizontal en touch */
   .admin-table-container {
-    overflow-x: auto;
+    background: transparent;
+    box-shadow: none;
+    border: none;
   }
 
   .admin-table {
-    min-width: 600px;
+    min-width: 0;
+  }
+
+  .admin-table thead {
+    display: none;
+  }
+
+  .admin-table, .admin-table tbody, .admin-table tr, .admin-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .admin-table tr {
+    background: white;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-light);
+    margin-bottom: 1rem;
+    overflow: hidden;
+  }
+
+  .admin-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-light);
+    text-align: left;
+  }
+
+  .admin-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 0.375rem;
+  }
+
+  .admin-table td:first-child {
+    padding-top: 1rem;
+  }
+
+  .admin-table td:first-child::before,
+  .admin-table td:last-child::before {
+    content: none;
+  }
+
+  .admin-table td:last-child {
+    background: var(--bg-primary);
+    border-bottom: none;
+  }
+
+  .admin-table .admin-actions .btn {
+    flex: 1;
+  }
+
+  .admin-table td.admin-tabla-vacio {
+    text-align: center;
+    padding: 3rem 1rem;
   }
 
   .admin-form-row {
@@ -430,6 +494,19 @@
   text-align: center;
   padding: 3rem;
   color: var(--text-muted);
+}
+
+/* ========== EMPTY STATE ========== */
+.admin-tabla-vacio {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-muted);
+}
+
+.admin-tabla-vacio-icon {
+  display: block;
+  margin: 0 auto 0.75rem;
+  opacity: 0.4;
 }
 
 /* ========== IMÁGENES ========== */

@@ -103,7 +103,7 @@
 .pos-buscador input {
   width: 100%;
   padding: 0.875rem 1rem 0.875rem 2.75rem;
-  font-size: 0.9375rem;
+  font-size: 1rem;
 }
 
 .pos-categorias {
@@ -527,7 +527,11 @@
   .carrito-item-precio {
     font-size: 1.1rem;
   }
-  
+
+  .carrito-item-quitar {
+    padding: 0.5rem 0.625rem;
+  }
+
   /* Lógica de Tabs Móviles - CORREGIDA */
   .pos-tabs-mobile {
     display: block;

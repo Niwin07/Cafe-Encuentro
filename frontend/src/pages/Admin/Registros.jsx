@@ -254,7 +254,7 @@ const Registros = () => {
                   
                   return (
                     <tr key={id} className={cancelado ? 'registro-cancelado' : ''}>
-                      <td>
+                      <td data-label="Fecha">
                         <div className="registros-fecha-hora">
                           <span className="registros-fecha">
                             {new Date(p.fecha_hora).toLocaleDateString('es-AR')}
@@ -264,28 +264,28 @@ const Registros = () => {
                           </span>
                         </div>
                       </td>
-                      
-                      <td><span className="registros-cliente">{p.cliente}</span></td>
-                      
-                      <td>
+
+                      <td data-label="Cliente"><span className="registros-cliente">{p.cliente}</span></td>
+
+                      <td data-label="Cajera">
                         <span className="registros-cajera-badge">
                           {p.cajera_nombre}
                         </span>
                       </td>
-                      
-                      <td style={{ textAlign: 'center' }}>
+
+                      <td data-label="Estado" style={{ textAlign: 'center' }}>
                         <span className={`registros-estado-badge ${cancelado ? 'estado-cancelado' : ''}`}>
                           {p.estado_general}
                         </span>
                       </td>
-                      
-                      <td style={{ textAlign: 'right' }}>
+
+                      <td data-label={filtroSector === 'GENERAL' ? 'Total Ticket' : 'Subtotal Sector'} style={{ textAlign: 'right' }}>
                         <span className="registros-total" style={{ textDecoration: cancelado ? 'line-through' : 'none', opacity: cancelado ? 0.5 : 1 }}>
                           ${obtenerTotalFila(p)}
                         </span>
                       </td>
                       
-                      <td>
+                      <td data-label="Acciones">
                         <div className="registros-acciones">
                           <button onClick={() => abrirDetalle(p)} className="registros-btn-accion registros-btn-ver" aria-label="Ver detalle del pedido">
                             <Eye size={16} />

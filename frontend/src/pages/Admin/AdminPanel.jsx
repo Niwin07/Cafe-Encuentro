@@ -4,7 +4,7 @@ import { useLocation } from 'wouter';
 import { useToast } from '../../context/ToastContext';
 import {
   Settings, ArrowLeft, Package, Tag, Utensils, Target, Users, Plus,
-  Pencil, Trash2, Image as ImageIcon, Sparkles, RefreshCw, Link2, Search, Save,
+  Pencil, Trash2, Image as ImageIcon, Sparkles, RefreshCw, Link2, Search, Save, Inbox,
 } from 'lucide-react';
 import './AdminPanel.css';
 
@@ -232,7 +232,7 @@ const AdminPanel = () => {
               <tbody>
                 {data.map(item => (
                   <tr key={item.id}>
-                    <td>
+                    <td data-label="Información">
                       <div className="admin-item-row">
                         {activeTab === 'productos' && (
                           item.imagen_url
@@ -256,20 +256,20 @@ const AdminPanel = () => {
                     
                     {activeTab === 'productos' && (
                       <>
-                        <td>
+                        <td data-label="Precio / Stock">
                           <div className="admin-precio-stock">
                             <span className="admin-precio">${item.precio}</span>
                             <span className={`admin-stock ${item.stock < 5 ? 'bajo' : 'ok'}`}>Stock: {item.stock}</span>
                           </div>
                         </td>
-                        <td>{item.categoria_nombre}</td>
+                        <td data-label="Categoría">{item.categoria_nombre}</td>
                       </>
                     )}
 
                     {activeTab === 'acompanamientos' && (
                       <>
-                        <td>{item.categoria}</td>
-                        <td>
+                        <td data-label="Categoría">{item.categoria}</td>
+                        <td data-label="Stock">
                            <span className={`admin-stock ${item.stock < 10 ? 'bajo' : 'ok'}`}>
                               {item.stock} u.
                            </span>
@@ -277,9 +277,9 @@ const AdminPanel = () => {
                       </>
                     )}
 
-                    {activeTab === 'cajeras' && <td style={{ color: 'var(--text-muted)' }}>@{item.usuario}</td>}
+                    {activeTab === 'cajeras' && <td data-label="Usuario" style={{ color: 'var(--text-muted)' }}>@{item.usuario}</td>}
 
-                    <td>
+                    <td data-label="Acciones">
                       <div className="admin-actions">
                         {activeTab !== 'cajeras' && (
                           <button onClick={() => openModal(item)} className="btn admin-btn-editar">
@@ -295,6 +295,14 @@ const AdminPanel = () => {
                     </td>
                   </tr>
                 ))}
+                {data.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="admin-tabla-vacio">
+                      <Inbox size={32} className="admin-tabla-vacio-icon" aria-hidden="true" />
+                      No hay elementos todavía.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

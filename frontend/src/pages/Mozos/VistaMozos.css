@@ -854,7 +854,7 @@
 
   .search-input {
     height: 48px;
-    font-size: 0.9375rem;
+    font-size: 1rem;
   }
 
   .categories-section {
@@ -862,8 +862,13 @@
   }
 
   .category-chip {
-    height: 38px;
+    height: 40px;
     padding: 0 1rem;
     font-size: 0.875rem;
+  }
+
+  .clear-btn {
+    width: 40px;
+    height: 40px;
   }
 }

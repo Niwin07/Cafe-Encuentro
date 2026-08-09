@@ -263,7 +263,7 @@
   border-radius: var(--radius-md);
   background: white;
   font-family: 'Inter', sans-serif;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   color: var(--text-primary);
   transition: all var(--transition-base);
 }
@@ -366,6 +366,11 @@
 
   .modal-titulo {
     font-size: 1.25rem;
+  }
+
+  .modal-btn-cerrar {
+    width: 44px;
+    height: 44px;
   }
 
   .modal-body {
