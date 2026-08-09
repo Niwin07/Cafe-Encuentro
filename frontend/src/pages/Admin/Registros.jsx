@@ -1,9 +1,14 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { useLocation } from 'wouter';
+import { useToast } from '../../context/ToastContext';
+import {
+  ArrowLeft, ScrollText, ChefHat, Coffee, Eye, Trash2, X, Inbox, Loader2, StickyNote,
+} from 'lucide-react';
 import './Registros.css';
 
 const Registros = () => {
+  const toast = useToast();
   const [datosMostrados, setDatosMostrados] = useState([]);
   
   const hoy = new Date().toISOString().split('T')[0];
@@ -20,6 +25,15 @@ const Registros = () => {
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
   
   const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!pedidoSeleccionado) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setPedidoSeleccionado(null);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [pedidoSeleccionado]);
 
   useEffect(() => {
     cargarHistorial();
@@ -57,7 +71,7 @@ const Registros = () => {
 
     } catch (error) {
       console.error(error);
-      alert("Error al cargar el historial");
+      toast.error('Error al cargar el historial.');
     } finally {
       setLoading(false);
     }
@@ -107,19 +121,25 @@ const Registros = () => {
       const res = await api.get(`/pedidos/${pedido.pedido_id || pedido.id}`);
       setPedidoSeleccionado(res.data);
     } catch (error) {
-      alert('Error cargando detalles');
+      toast.error('Error cargando los detalles del pedido: ' + (error.response?.data?.mensaje || error.message));
     } finally {
       setCargandoDetalle(false);
     }
   };
 
   const eliminarPedido = async (id) => {
-    if (!window.confirm('⚠️ ¿Estás segura de eliminar este registro? Afectará la caja.')) return;
+    const ok = await toast.confirm('¿Estás segura de eliminar este registro? Afectará la caja.', {
+      title: 'Eliminar registro',
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.delete(`/pedidos/${id}`);
-      cargarHistorial(); 
+      toast.success('Registro eliminado.');
+      cargarHistorial();
     } catch (error) {
-      alert('Error al eliminar');
+      toast.error('Error al eliminar el registro: ' + (error.response?.data?.mensaje || error.message));
     }
   };
 
@@ -146,10 +166,10 @@ const Registros = () => {
       <div className="registros-header animate-fade-in">
         <div className="registros-title-section">
           <button onClick={() => setLocation('/pedidos')} className="btn btn-secondary">
-            ⬅️ Volver
+            <ArrowLeft size={16} aria-hidden="true" /> Volver
           </button>
           <h1>
-            <span>📜</span>
+            <ScrollText size={26} aria-hidden="true" />
             Registros {filtroSector !== 'GENERAL' ? `(${filtroSector})` : ''}
           </h1>
         </div>
@@ -157,12 +177,12 @@ const Registros = () => {
         {/* TABS SELECTOR DE DESTINO */}
         <div className="registros-tabs">
           {['GENERAL', 'COCINA', 'CAFETERIA'].map(sector => (
-            <button 
+            <button
               key={sector}
               className={`registros-tab ${filtroSector === sector ? 'active' : ''}`}
               onClick={() => setFiltroSector(sector)}
             >
-              {sector === 'GENERAL' ? 'Todo' : sector === 'COCINA' ? '🍳 Cocina' : '☕ Cafetería'}
+              {sector === 'GENERAL' ? 'Todo' : sector === 'COCINA' ? <><ChefHat size={15} aria-hidden="true" /> Cocina</> : <><Coffee size={15} aria-hidden="true" /> Cafetería</>}
             </button>
           ))}
         </div>
@@ -200,7 +220,7 @@ const Registros = () => {
       {/* TABLA */}
       {loading ? (
         <div className="registros-loading">
-          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
+          <Loader2 size={32} className="animate-spin" aria-hidden="true" />
           <p>Filtrando registros...</p>
         </div>
       ) : (
@@ -223,7 +243,7 @@ const Registros = () => {
               {datosMostrados.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="registros-vacio">
-                    <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📭</div>
+                    <Inbox size={32} className="registros-vacio-icon" aria-hidden="true" />
                     No hay registros en {filtroSector.toLowerCase()}.
                   </td>
                 </tr>
@@ -267,9 +287,13 @@ const Registros = () => {
                       
                       <td>
                         <div className="registros-acciones">
-                          <button onClick={() => abrirDetalle(p)} className="registros-btn-accion registros-btn-ver">👁️</button>
+                          <button onClick={() => abrirDetalle(p)} className="registros-btn-accion registros-btn-ver" aria-label="Ver detalle del pedido">
+                            <Eye size={16} />
+                          </button>
                           {filtroSector === 'GENERAL' && (
-                             <button onClick={() => eliminarPedido(id)} className="registros-btn-accion registros-btn-eliminar">🗑️</button>
+                             <button onClick={() => eliminarPedido(id)} className="registros-btn-accion registros-btn-eliminar" aria-label="Eliminar registro">
+                               <Trash2 size={16} />
+                             </button>
                           )}
                         </div>
                       </td>
@@ -285,12 +309,20 @@ const Registros = () => {
       {/* MODAL DETALLE */}
       {pedidoSeleccionado && (
         <div className="registros-modal-overlay" onClick={() => setPedidoSeleccionado(null)}>
-          <div className="registros-modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="registros-modal"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="registros-modal-titulo"
+          >
             <div className="registros-modal-header">
-              <h3 className="registros-modal-title">
+              <h3 id="registros-modal-titulo" className="registros-modal-title">
                 Ticket #{(pedidoSeleccionado.id || pedidoSeleccionado.pedido_id).toString().slice(-6)}
               </h3>
-              <button onClick={() => setPedidoSeleccionado(null)} className="registros-modal-close">×</button>
+              <button onClick={() => setPedidoSeleccionado(null)} className="registros-modal-close" aria-label="Cerrar detalle">
+                <X size={20} />
+              </button>
             </div>
             
             <div className="registros-modal-info">
@@ -322,7 +354,7 @@ const Registros = () => {
                         <div className="registros-modal-item-extra">+ {item.acompanamiento_nombre}</div>
                     )}
                     {item.instrucciones_especiales && (
-                        <div className="registros-modal-item-nota">📝 {item.instrucciones_especiales}</div>
+                        <div className="registros-modal-item-nota"><StickyNote size={12} aria-hidden="true" /> {item.instrucciones_especiales}</div>
                     )}
                   </div>
                   <div className="registros-modal-item-subtotal">${item.subtotal}</div>

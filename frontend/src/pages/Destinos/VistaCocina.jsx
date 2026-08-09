@@ -1,10 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../../services/api';
+import { useToast } from '../../context/ToastContext';
+import {
+  Bell, ChefHat, Flame, Hourglass, CheckCircle2, ArrowRight, Clock,
+  User, Briefcase, Utensils, AlertTriangle, PartyPopper,
+} from 'lucide-react';
 import './VistaCocina.css';
 
-
-
 const VistaCocina = () => {
+  const toast = useToast();
   const [pedidos, setPedidos] = useState({});
   const [ultimoUpdate, setUltimoUpdate] = useState(new Date());
   const [permisoSonido, setPermisoSonido] = useState(false);
@@ -76,7 +80,7 @@ const VistaCocina = () => {
         console.log("🔊 Sistema de audio activado");
       })
       .catch(e => {
-        alert(`No se pudo reproducir el audio. Verifica que exista /public/ding.mp3`);
+        toast.error('No se pudo reproducir el audio. Verifica que exista /public/ding.mp3');
         console.error(e);
       });
   };
@@ -99,7 +103,7 @@ const VistaCocina = () => {
         await api.patch(`/pedidos/items/${itemId}/estado`, { estado: nuevoEstado });
         cargarPedidos();
       } catch (error) {
-        alert('Error actualizando estado');
+        toast.error('Error actualizando el estado del plato: ' + (error.response?.data?.mensaje || error.message));
       }
     }
   };
@@ -116,10 +120,10 @@ const VistaCocina = () => {
 
   const getEstadoIcon = (estado) => {
     switch(estado) {
-      case 'Pendiente': return '⏳';
-      case 'En Preparación': return '🔥';
-      case 'Listo': return '✅';
-      default: return '➡️';
+      case 'Pendiente': return <Hourglass size={16} aria-hidden="true" />;
+      case 'En Preparación': return <Flame size={16} aria-hidden="true" />;
+      case 'Listo': return <CheckCircle2 size={16} aria-hidden="true" />;
+      default: return <ArrowRight size={16} aria-hidden="true" />;
     }
   };
 
@@ -131,17 +135,17 @@ const VistaCocina = () => {
       
       {!permisoSonido && (
         <button className="btn-sound-floating" onClick={activarSonido}>
-          <span style={{ fontSize: '1.2rem' }}>🔔</span>
+          <Bell size={19} aria-hidden="true" />
           Activar Avisos
         </button>
       )}
-      
+
       {/* HEADER */}
       <div className="cocina-header">
         <div className="cocina-header-content">
           <div className="cocina-title-section">
-            <h1><span className="cocina-emoji">🍳</span> Cocina</h1>
-            <div className="cocina-subtitle">🔥 Gestión en tiempo real</div>
+            <h1><ChefHat className="cocina-emoji" size={32} aria-hidden="true" /> Cocina</h1>
+            <div className="cocina-subtitle"><Flame size={14} aria-hidden="true" /> Gestión en tiempo real</div>
           </div>
           
           <div className="cocina-stats">
@@ -166,7 +170,7 @@ const VistaCocina = () => {
       {/* CONTENIDO CON BARRA */}
       {Object.keys(pedidos).length === 0 ? (
         <div className="cocina-vacio">
-          <span className="cocina-vacio-icon">🎉</span>
+          <PartyPopper size={64} className="cocina-vacio-icon" aria-hidden="true" />
           <h2>¡Todo listo!</h2>
           <p>No hay pedidos pendientes en este momento</p>
         </div>
@@ -175,22 +179,22 @@ const VistaCocina = () => {
           <div className="cocina-grid">
             {Object.entries(pedidos).map(([pedidoId, items]) => (
               <div key={pedidoId} className="cocina-card">
-                
+
                 <div className="cocina-card-header">
                   <div className="cocina-header-top">
                     <span className="cocina-pedido-id">#{pedidoId.slice(-6)}</span>
                     <div className="cocina-time-badge">
-                      <span className="cocina-time-icon">🕐</span>
+                      <Clock size={14} className="cocina-time-icon" aria-hidden="true" />
                       <span className="cocina-time">{new Date(items[0].created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                     </div>
                   </div>
                   <div className="cocina-header-bottom">
                     <div className="cocina-cliente">
-                      <span className="cocina-cliente-icon">👤</span>
+                      <User size={15} className="cocina-cliente-icon" aria-hidden="true" />
                       <span>{items[0].cliente}</span>
                     </div>
                     <div className="cocina-cajera-badge">
-                      <span>💼</span>
+                      <Briefcase size={13} aria-hidden="true" />
                       <span>{items[0].cajera_nombre}</span>
                     </div>
                   </div>
@@ -207,22 +211,22 @@ const VistaCocina = () => {
                           </div>
                           {item.acompanamiento_nombre && (
                             <div className="cocina-item-acomp">
-                              <span>🥄</span> {item.acompanamiento_nombre}
+                              <Utensils size={13} aria-hidden="true" /> {item.acompanamiento_nombre}
                             </div>
                           )}
                           {item.instrucciones_especiales && (
                             <div className="cocina-item-nota">
-                              ⚠️ {item.instrucciones_especiales}
+                              <AlertTriangle size={14} aria-hidden="true" /> {item.instrucciones_especiales}
                             </div>
                           )}
                         </div>
-                        
-                        <button 
+
+                        <button
                           onClick={() => avanzarEstado(item.id, item.estado)}
                           disabled={item.estado === 'Listo'}
                           className={`cocina-estado-btn ${getEstadoClass(item.estado)}`}
                         >
-                          <span>{getEstadoIcon(item.estado)}</span>
+                          {getEstadoIcon(item.estado)}
                           <span>{item.estado}</span>
                         </button>
                       </div>

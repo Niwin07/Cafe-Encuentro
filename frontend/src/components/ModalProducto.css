@@ -108,11 +108,34 @@
 }
 
 .modal-label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
   margin-bottom: 0.75rem;
   font-weight: 600;
   font-size: 0.9375rem;
   color: var(--cafe-oscuro);
+}
+
+.modal-label-icon {
+  color: var(--cafe-claro);
+  flex-shrink: 0;
+}
+
+.modal-hint-message {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+  font-weight: 600;
+}
+
+.modal-hint-error {
+  color: var(--error);
+}
+
+.modal-hint-success {
+  color: var(--success);
 }
 
 .modal-imagen {

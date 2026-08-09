@@ -1,0 +1,68 @@
+/* ============================================
+   CONFIRM DIALOG
+   ============================================ */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(62, 39, 35, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-md);
+}
+
+.confirm-dialog {
+  background: white;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  width: 100%;
+  max-width: 400px;
+  padding: var(--spacing-xl) var(--spacing-lg) var(--spacing-lg);
+  text-align: center;
+}
+
+.confirm-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-full);
+  background: var(--info-light);
+  color: var(--info);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto var(--spacing-md);
+}
+
+.confirm-icon-danger {
+  background: var(--error-light);
+  color: var(--error);
+}
+
+.confirm-title {
+  font-size: 1.25rem;
+  margin-bottom: var(--spacing-sm);
+}
+
+.confirm-message {
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-lg);
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.confirm-actions .btn {
+  flex: 1;
+}
+
+@media (max-width: 480px) {
+  .confirm-actions {
+    flex-direction: column-reverse;
+  }
+}

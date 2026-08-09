@@ -1,13 +1,19 @@
 import { useState, useEffect, useContext } from 'react';
 import api from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import ListaPedidosActivos from './ListaPedidosActivos';
 import ModalProducto from '../../components/ModalProducto';
 import { useLocation } from 'wouter';
+import {
+  Coffee, BarChart3, Settings, LogOut, UtensilsCrossed, ShoppingCart,
+  ClipboardList, Search, Plus, Trash2, CheckCircle2, Loader2, StickyNote,
+} from 'lucide-react';
 import './MenuCajera.css';
 
 const MenuCajera = () => {
   const { user, logout } = useContext(AuthContext);
+  const toast = useToast();
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [carrito, setCarrito] = useState([]);
@@ -33,7 +39,7 @@ const MenuCajera = () => {
   };
 
   const abrirModalProducto = (producto) => {
-    if (producto.stock <= 0) return alert('⚠️ No hay stock');
+    if (producto.stock <= 0) return toast.warning('No hay stock disponible para este producto.');
     setProductoSeleccionado(producto);
   };
 
@@ -74,27 +80,27 @@ const MenuCajera = () => {
   };
 
   const confirmarPedido = async () => {
-  if (!cliente.trim()) return alert('⚠️ Falta nombre del cliente');
-  if (carrito.length === 0) return alert('⚠️ Carrito vacío');
-  
+  if (!cliente.trim()) return toast.warning('Ingresá el nombre del cliente o la mesa para continuar.');
+  if (carrito.length === 0) return toast.warning('El carrito está vacío. Agregá al menos un producto.');
+
   // Validar que todos los items tengan acompañamiento si hay opciones disponibles
   const itemsSinAcompRequerido = [];
-  
+
   for (const item of carrito) {
     // Buscar el producto original para ver si tiene acompañamientos disponibles
     const prodOriginal = productos.find(p => p.id === item.id);
-    
+
     // Si el producto tiene acompañamientos disponibles y no se seleccionó ninguno
     if (prodOriginal?.acompanamientos?.length > 0 && !item.acompanamiento_id) {
       itemsSinAcompRequerido.push(item.nombre);
     }
   }
-  
+
   if (itemsSinAcompRequerido.length > 0) {
     const productosLista = itemsSinAcompRequerido.join(', ');
-    return alert(`⚠️ Los siguientes productos requieren seleccionar un acompañamiento:\n\n${productosLista}`);
+    return toast.warning(`Estos productos requieren un acompañamiento:\n${productosLista}`);
   }
-  
+
   setProcesando(true);
   try {
     const payload = {
@@ -107,19 +113,19 @@ const MenuCajera = () => {
       }))
     };
     await api.post('/pedidos', payload);
-    alert('✅ Pedido confirmado');
+    toast.success('Pedido confirmado correctamente.');
     setCarrito([]);
     setCliente('');
     cargarDatos();
-    
+
     // Cambiar a pestaña de pedidos en móvil
     if (window.innerWidth < 1024) {
       setTabActiva('pedidos');
     }
-  } catch (error) { 
-    alert(error.message); 
-  } finally { 
-    setProcesando(false); 
+  } catch (error) {
+    toast.error(error.response?.data?.mensaje || error.message || 'No se pudo confirmar el pedido.');
+  } finally {
+    setProcesando(false);
   }
   };
 
@@ -140,33 +146,36 @@ const MenuCajera = () => {
       <div className="pos-header">
         <div className="pos-header-content">
           <div>
-            <h2>☕ Café Encuentro</h2>
+            <h1 className="pos-header-title"><Coffee size={22} className="pos-header-icon" aria-hidden="true" /> Café Encuentro</h1>
             <p className="pos-header-user">
               Cajera: <strong>{user?.nombre}</strong>
             </p>
           </div>
-          
+
           <div className="pos-header-actions">
-            <button 
-              onClick={() => setLocation('/registros')} 
+            <button
+              onClick={() => setLocation('/registros')}
               className="btn btn-icon"
               title="Registros"
+              aria-label="Ver registros"
             >
-              📊
+              <BarChart3 size={18} />
             </button>
-            <button 
-              onClick={() => setLocation('/admin')} 
+            <button
+              onClick={() => setLocation('/admin')}
               className="btn btn-icon"
               title="Administración"
+              aria-label="Ir a administración"
             >
-              ⚙️
+              <Settings size={18} />
             </button>
-            <button 
-              onClick={logout} 
+            <button
+              onClick={logout}
               className="btn btn-icon"
               title="Cerrar sesión"
+              aria-label="Cerrar sesión"
             >
-              🚪
+              <LogOut size={18} />
             </button>
           </div>
         </div>
@@ -175,18 +184,18 @@ const MenuCajera = () => {
       {/* TABS MÓVILES */}
       <div className="pos-tabs-mobile">
         <div className="pos-tabs-container">
-          <button 
+          <button
             className={`pos-tab-btn ${tabActiva === 'catalogo' ? 'active' : ''}`}
             onClick={() => setTabActiva('catalogo')}
           >
-            <span>🍽️</span>
+            <UtensilsCrossed size={16} />
             <span>Catálogo</span>
           </button>
-          <button 
+          <button
             className={`pos-tab-btn ${tabActiva === 'carrito' ? 'active' : ''}`}
             onClick={() => setTabActiva('carrito')}
           >
-            <span>🛒</span>
+            <ShoppingCart size={16} />
             <span>Carrito</span>
             {carrito.length > 0 && (
               <span className="badge badge-error" style={{ marginLeft: '0.25rem' }}>
@@ -194,11 +203,11 @@ const MenuCajera = () => {
               </span>
             )}
           </button>
-          <button 
+          <button
             className={`pos-tab-btn ${tabActiva === 'pedidos' ? 'active' : ''}`}
             onClick={() => setTabActiva('pedidos')}
           >
-            <span>📋</span>
+            <ClipboardList size={16} />
             <span>Activos</span>
           </button>
         </div>
@@ -213,11 +222,13 @@ const MenuCajera = () => {
           <div className="pos-catalogo-filtros">
             {/* Buscador */}
             <div className="pos-buscador">
-              <input 
+              <Search size={17} className="pos-buscador-icon" aria-hidden="true" />
+              <input
                 type="text"
-                placeholder="🔍 Buscar producto..."
+                placeholder="Buscar producto..."
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
+                aria-label="Buscar producto"
               />
             </div>
 
@@ -238,10 +249,20 @@ const MenuCajera = () => {
           {/* Grid de Productos */}
           <div className="pos-productos-grid">
             {productosFiltrados.map(prod => (
-              <div 
-                key={prod.id} 
+              <div
+                key={prod.id}
                 className={`card producto-card ${prod.stock === 0 ? 'sin-stock' : ''}`}
                 onClick={() => abrirModalProducto(prod)}
+                role="button"
+                tabIndex={prod.stock === 0 ? -1 : 0}
+                aria-disabled={prod.stock === 0}
+                aria-label={`${prod.nombre}, $${prod.precio}${prod.stock === 0 ? ', sin stock' : ''}`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    abrirModalProducto(prod);
+                  }
+                }}
               >
                 {/* Badge de stock bajo */}
                 {prod.stock < 5 && prod.stock > 0 && (
@@ -264,15 +285,15 @@ const MenuCajera = () => {
                 <div className="producto-footer">
                   <span className="producto-precio">${prod.precio}</span>
                   {prod.stock > 0 && (
-                    <span className="producto-icono-add">➕</span>
+                    <Plus size={22} className="producto-icono-add" aria-hidden="true" />
                   )}
                 </div>
               </div>
             ))}
-            
+
             {productosFiltrados.length === 0 && (
               <div className="pos-productos-vacio">
-                <p className="pos-productos-vacio-icono">🔍</p>
+                <Search size={40} className="pos-productos-vacio-icono" aria-hidden="true" />
                 <p>No se encontraron productos</p>
               </div>
             )}
@@ -283,11 +304,13 @@ const MenuCajera = () => {
         <div className={`pos-carrito ${tabActiva === 'carrito' ? 'active' : ''}`}>
           
           <div className="pos-carrito-header">
-            <h3>🛒 Pedido Actual</h3>
-            <input 
-              type="text" 
+            <h3><ShoppingCart size={18} className="pos-header-icon" aria-hidden="true" /> Pedido Actual</h3>
+            <label htmlFor="cliente-input" className="sr-only">Nombre del cliente o mesa</label>
+            <input
+              id="cliente-input"
+              type="text"
               placeholder="Nombre del cliente o mesa..."
-              value={cliente} 
+              value={cliente}
               onChange={e => setCliente(e.target.value)}
               autoFocus={tabActiva === 'carrito'}
             />
@@ -296,7 +319,7 @@ const MenuCajera = () => {
           <div className="pos-carrito-items">
             {carrito.length === 0 ? (
               <div className="carrito-vacio">
-                <p className="carrito-vacio-icono">🛒</p>
+                <ShoppingCart size={40} className="carrito-vacio-icono" aria-hidden="true" />
                 <p>El carrito está vacío</p>
                 <small>Selecciona productos del catálogo</small>
               </div>
@@ -311,7 +334,7 @@ const MenuCajera = () => {
                       <div className="carrito-item-acomp">+ {item.acompanamiento_nombre}</div>
                     )}
                     {item.notas && (
-                      <div className="carrito-item-nota">📝 {item.notas}</div>
+                      <div className="carrito-item-nota"><StickyNote size={12} aria-hidden="true" /> {item.notas}</div>
                     )}
                   </div>
                   
@@ -319,16 +342,12 @@ const MenuCajera = () => {
                     <div className="carrito-item-precio">
                       ${(item.precio * item.cantidad).toFixed(2)}
                     </div>
-                    <button 
+                    <button
                       onClick={() => eliminarDelCarrito(item.tempId)}
-                      className="btn-ghost"
-                      style={{ 
-                        color: 'var(--error)',
-                        fontSize: '0.8125rem',
-                        padding: '0.25rem 0.5rem'
-                      }}
+                      className="btn-ghost carrito-item-quitar"
+                      aria-label={`Quitar ${item.nombre} del carrito`}
                     >
-                      🗑️ Quitar
+                      <Trash2 size={14} /> Quitar
                     </button>
                   </div>
                 </div>
@@ -342,21 +361,18 @@ const MenuCajera = () => {
               <span>${total.toFixed(2)}</span>
             </div>
             
-            <button 
+            <button
               onClick={confirmarPedido}
               disabled={procesando || carrito.length === 0}
               className="btn btn-lg carrito-btn-confirmar"
             >
               {procesando ? (
                 <>
-                  <svg className="animate-spin" style={{ width: '20px', height: '20px' }} viewBox="0 0 24 24">
-                    <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                    <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                  <Loader2 size={20} className="animate-spin" aria-hidden="true" />
                   Procesando...
                 </>
               ) : (
-                <>✅ CONFIRMAR PEDIDO ({carrito.length})</>
+                <><CheckCircle2 size={18} aria-hidden="true" /> CONFIRMAR PEDIDO ({carrito.length})</>
               )}
             </button>
           </div>

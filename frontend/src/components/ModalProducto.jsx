@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
+import { X, Minus, Plus, Utensils, StickyNote, ShoppingCart, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 import './ModalProducto.css';
 
 const ModalProducto = ({ producto, carrito, onClose, onConfirm }) => {
+  const toast = useToast();
   const [cantidad, setCantidad] = useState(1);
   const [nota, setNota] = useState('');
   const [acompanamientoId, setAcompanamientoId] = useState('');
@@ -11,6 +14,15 @@ const ModalProducto = ({ producto, carrito, onClose, onConfirm }) => {
     setNota('');
     setAcompanamientoId('');
   }, [producto]);
+
+  useEffect(() => {
+    if (!producto) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [producto, onClose]);
 
   if (!producto) return null;
 
@@ -67,11 +79,11 @@ const ModalProducto = ({ producto, carrito, onClose, onConfirm }) => {
 
   const handleConfirm = () => {
     if (stockInsuficienteProd) {
-      alert(`⚠️ Stock insuficiente del producto. Quedan ${stockRealProducto} reales.`);
+      toast.error(`Stock insuficiente del producto. Quedan ${stockRealProducto} reales.`);
       return;
     }
     if (stockInsuficienteAcomp) {
-        alert(`⚠️ Stock insuficiente de "${acompSeleccionado.nombre}". Quedan ${stockRealAcomp} reales.`);
+        toast.error(`Stock insuficiente de "${acompSeleccionado.nombre}". Quedan ${stockRealAcomp} reales.`);
         return;
     }
 
@@ -100,14 +112,21 @@ const ModalProducto = ({ producto, carrito, onClose, onConfirm }) => {
     <>
       <div className="modal-overlay" onClick={onClose} />
       <div className="modal-container animate-fade-in">
-        <div className="modal-content">
-          
+        <div
+          className="modal-content"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-producto-titulo"
+        >
+
           <div className="modal-header">
             <div>
-              <h3 className="modal-titulo">{producto.nombre}</h3>
+              <h3 id="modal-producto-titulo" className="modal-titulo">{producto.nombre}</h3>
               {producto.descripcion && <p className="modal-descripcion">{producto.descripcion}</p>}
             </div>
-            <button onClick={onClose} className="modal-btn-cerrar">✕</button>
+            <button onClick={onClose} className="modal-btn-cerrar" aria-label="Cerrar">
+              <X size={18} />
+            </button>
           </div>
 
           <div className="modal-body">
@@ -126,17 +145,21 @@ const ModalProducto = ({ producto, carrito, onClose, onConfirm }) => {
             <div className="modal-section">
               <label className="modal-label">Cantidad</label>
               <div className="cantidad-selector">
-                <button onClick={decrementar} disabled={cantidad <= 1} className="btn-cantidad">−</button>
-                <input type="number" readOnly value={cantidad} className="cantidad-input"/>
-                <button onClick={incrementar} disabled={cantidad >= stockRealProducto} className="btn-cantidad">+</button>
+                <button onClick={decrementar} disabled={cantidad <= 1} className="btn-cantidad" aria-label="Restar cantidad">
+                  <Minus size={18} />
+                </button>
+                <input type="number" readOnly value={cantidad} className="cantidad-input" aria-label="Cantidad seleccionada"/>
+                <button onClick={incrementar} disabled={cantidad >= stockRealProducto} className="btn-cantidad" aria-label="Sumar cantidad">
+                  <Plus size={18} />
+                </button>
               </div>
-              
+
               <small className={`modal-stock ${stockRealProducto < 5 ? 'stock-bajo' : ''}`}>
-                {stockRealProducto <= 0 ? '🚫 Sin Stock' : `✓ Disponibles: ${stockRealProducto}`} 
-                { (enCarritoPrincipal + enCarritoComoAcomp) > 0 && 
+                {stockRealProducto <= 0 ? 'Sin stock' : `Disponibles: ${stockRealProducto}`}
+                { (enCarritoPrincipal + enCarritoComoAcomp) > 0 &&
                   <span style={{marginLeft: '5px', opacity: 0.7}}>
                     (Tienes {enCarritoPrincipal + enCarritoComoAcomp} en carrito)
-                  </span> 
+                  </span>
                 }
               </small>
             </div>
@@ -145,7 +168,7 @@ const ModalProducto = ({ producto, carrito, onClose, onConfirm }) => {
             {opcionesDisponibles.length > 0 && (
               <div className="modal-section">
                 <label className="modal-label">
-                  🥄 Acompañamiento 
+                  <Utensils size={15} className="modal-label-icon" aria-hidden="true" /> Acompañamiento
                   <span style={{ color: 'var(--error)', marginLeft: '0.25rem' }}>*</span>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
                     (Obligatorio)
@@ -180,28 +203,30 @@ const ModalProducto = ({ producto, carrito, onClose, onConfirm }) => {
                 
                 {/* Mensaje cuando no se ha seleccionado */}
                 {!acompanamientoId && (
-                  <small style={{ color: 'var(--error)', display: 'block', marginTop: '0.5rem', fontWeight: '600' }}>
-                      ⚠️ Debes seleccionar un acompañamiento para continuar
+                  <small className="modal-hint-message modal-hint-error">
+                      <AlertTriangle size={13} aria-hidden="true" /> Debes seleccionar un acompañamiento para continuar
                   </small>
                 )}
-                
+
                 {/* Mensajes de ayuda o error cuando sí está seleccionado */}
                 {acompanamientoId && !stockInsuficienteAcomp && (
-                  <small style={{ color: 'var(--success)', display: 'block', marginTop: '0.25rem' }}>
-                      ✓ Stock suficiente ({stockRealAcomp} disponibles)
+                  <small className="modal-hint-message modal-hint-success">
+                      <CheckCircle2 size={13} aria-hidden="true" /> Stock suficiente ({stockRealAcomp} disponibles)
                   </small>
                 )}
-                
+
                 {stockInsuficienteAcomp && (
-                    <small style={{ color: 'var(--error)', marginTop: '0.25rem', display: 'block', fontWeight: '600' }}>
-                        ⚠️ No hay suficiente stock (Solo quedan {stockRealAcomp})
+                    <small className="modal-hint-message modal-hint-error">
+                        <AlertTriangle size={13} aria-hidden="true" /> No hay suficiente stock (Solo quedan {stockRealAcomp})
                     </small>
                 )}
               </div>
             )}
 
             <div className="modal-section">
-              <label className="modal-label">📝 Notas especiales</label>
+              <label className="modal-label">
+                <StickyNote size={15} className="modal-label-icon" aria-hidden="true" /> Notas especiales
+              </label>
               <textarea 
                 rows="3" 
                 placeholder='Ej: "Sin azúcar", "Tibio", etc.'
@@ -220,16 +245,16 @@ const ModalProducto = ({ producto, carrito, onClose, onConfirm }) => {
             </div>
             <div className="modal-actions">
               <button onClick={onClose} className="btn btn-secondary modal-btn-cancelar">Cancelar</button>
-              <button 
-                onClick={handleConfirm} 
+              <button
+                onClick={handleConfirm}
                 className="btn btn-primary modal-btn-agregar"
                 disabled={
-                  stockInsuficienteProd || 
-                  stockInsuficienteAcomp || 
+                  stockInsuficienteProd ||
+                  stockInsuficienteAcomp ||
                   (opcionesDisponibles.length > 0 && !acompanamientoId) // Nueva condición
                 }
               >
-                ➕ Agregar al Pedido
+                <ShoppingCart size={16} aria-hidden="true" /> Agregar al Pedido
             </button>
             </div>
           </div>

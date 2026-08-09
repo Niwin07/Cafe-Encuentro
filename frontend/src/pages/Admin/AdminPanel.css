@@ -27,7 +27,7 @@
   flex-wrap: wrap;
 }
 
-.admin-header h2 {
+.admin-header h1 {
   color: white;
   margin: 0;
   font-size: clamp(1.25rem, 3vw, 1.75rem);
@@ -62,6 +62,9 @@
 }
 
 .admin-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   padding: 1rem 1.5rem;
   border: none;
   background: none;
@@ -159,6 +162,16 @@
   font-weight: 600;
   color: var(--cafe-oscuro);
   margin-bottom: 0.25rem;
+}
+
+.admin-item-vinculado {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.7rem;
+  color: var(--cafe-claro);
+  margin-left: 0.3rem;
+  font-weight: 500;
 }
 
 .admin-item-desc {
@@ -303,8 +316,30 @@
   border: 1px dashed var(--border-default);
 }
 
-.admin-acomp-search {
+.admin-form-help {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+.admin-acomp-search-wrap {
+  position: relative;
   margin-bottom: 1rem;
+}
+
+.admin-acomp-search-icon {
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--cafe-claro);
+  pointer-events: none;
+}
+
+.admin-acomp-search {
+  margin-bottom: 0;
+  padding-left: 2.5rem;
 }
 
 .admin-acomp-grid {

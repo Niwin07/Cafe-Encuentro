@@ -229,8 +229,10 @@
 }
 
 .registros-btn-accion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.5rem 0.75rem;
-  font-size: 1.125rem;
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -260,15 +262,24 @@
 
 /* Estado de carga */
 .registros-loading {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
   padding: 3rem;
-  color: var(--text-muted);
+  color: var(--cafe-claro);
 }
 
 .registros-vacio {
   text-align: center;
   padding: 3rem;
   color: var(--text-muted);
+}
+
+.registros-vacio-icon {
+  display: block;
+  margin: 0 auto 0.75rem;
+  opacity: 0.4;
 }
 
 /* ========== MODAL DE DETALLE ========== */
@@ -406,6 +417,9 @@
 }
 
 .registros-modal-item-nota {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.25rem;
   font-size: 0.8125rem;
   color: var(--warning);
   font-style: italic;
@@ -503,6 +517,9 @@
 }
 
 .registros-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   padding: 0.5rem 1.25rem;
   border: none;
   background: transparent;
