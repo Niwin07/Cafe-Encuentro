@@ -159,7 +159,7 @@ const MenuCajera = () => {
               title="Registros"
               aria-label="Ver registros"
             >
-              <BarChart3 size={18} />
+              <BarChart3 size={22} strokeWidth={2.25} />
             </button>
             <button
               onClick={() => setLocation('/admin')}
@@ -167,7 +167,7 @@ const MenuCajera = () => {
               title="Administración"
               aria-label="Ir a administración"
             >
-              <Settings size={18} />
+              <Settings size={22} strokeWidth={2.25} />
             </button>
             <button
               onClick={logout}
@@ -175,7 +175,7 @@ const MenuCajera = () => {
               title="Cerrar sesión"
               aria-label="Cerrar sesión"
             >
-              <LogOut size={18} />
+              <LogOut size={22} strokeWidth={2.25} />
             </button>
           </div>
         </div>

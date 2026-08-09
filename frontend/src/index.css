@@ -527,7 +527,7 @@ label {
     padding: var(--spacing-md);
   }
 
-  .btn {
+  .btn:not(.btn-icon):not(.btn-icon-sm) {
     padding: 0.625rem 1.25rem;
   }
 
@@ -535,11 +535,13 @@ label {
   .btn-icon {
     width: 44px;
     height: 44px;
+    padding: 0;
   }
 
   .btn-icon-sm {
     width: 36px;
     height: 36px;
+    padding: 0;
   }
 }
 

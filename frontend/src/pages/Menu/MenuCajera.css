@@ -56,7 +56,13 @@
 }
 
 .pos-header .btn-icon {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+.pos-header .btn-icon:hover {
+  background: rgba(255, 255, 255, 0.28);
 }
 
 /* ========== LAYOUT PRINCIPAL ========== */
