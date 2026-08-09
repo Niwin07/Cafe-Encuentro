@@ -122,6 +122,41 @@ const obtenerAcompanamientos = async (productoId) => {
 };
 
 /**
+ * Obtener acompañamientos de varios productos en una sola consulta
+ * (evita N+1: listar el menú no debe hacer una query por producto).
+ * @param {number[]} productoIds
+ * @returns {object} Mapa producto_id -> array de acompañamientos
+ */
+const obtenerAcompanamientosPorProductos = async (productoIds) => {
+  if (!productoIds || productoIds.length === 0) return {};
+
+  const query = `
+    SELECT
+      pa.producto_id,
+      a.id,
+      a.nombre,
+      a.categoria,
+      a.activo,
+      a.producto_vinculado_id,
+      COALESCE(p_link.stock, a.stock) as stock
+    FROM acompanamientos a
+    INNER JOIN productos_acompanamientos pa ON a.id = pa.acompanamiento_id
+    LEFT JOIN productos p_link ON a.producto_vinculado_id = p_link.id
+    WHERE pa.producto_id IN (?) AND a.activo = TRUE
+    ORDER BY a.categoria, a.nombre
+  `;
+
+  const [rows] = await pool.query(query, [productoIds]);
+
+  const porProducto = {};
+  for (const { producto_id, ...acompanamiento } of rows) {
+    if (!porProducto[producto_id]) porProducto[producto_id] = [];
+    porProducto[producto_id].push(acompanamiento);
+  }
+  return porProducto;
+};
+
+/**
  * Crear un nuevo producto
  */
 const crear = async (producto) => {
@@ -327,6 +362,7 @@ module.exports = {
   obtenerTodos,
   obtenerPorId,
   obtenerAcompanamientos,
+  obtenerAcompanamientosPorProductos,
   crear,
   actualizar,
   actualizarImagen,

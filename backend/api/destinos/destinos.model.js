@@ -1,8 +1,10 @@
 const pool = require('../../conexion');
 
-// 1. CAMBIAR ESTO (Quitamos "WHERE activo = 1")
+// Solo destinos activos: el listado es público y se usa para poblar
+// selects (p.ej. al crear un producto), no debe ofrecer destinos
+// desactivados (ver auditoría — antes traía todo, incluidos los soft-deleted).
 const obtenerTodos = async () => {
-  const [rows] = await pool.query('SELECT * FROM destinos'); // <--- Trae todo
+  const [rows] = await pool.query('SELECT * FROM destinos WHERE activo = 1 ORDER BY nombre ASC');
   return rows;
 };
 
@@ -17,17 +19,34 @@ const crear = async (nombre, descripcion) => {
 };
 
 
-// 2. AGREGAR ESTO (Actualizar para poder reactivar)
+// Actualizar (columnas whiteliseadas: nunca construir el SET a partir de
+// claves arbitrarias del body, es una inyección SQL — ver auditoría de seguridad)
 const actualizar = async (id, datos) => {
-  const campos = Object.keys(datos).map(key => `${key} = ?`).join(', ');
-  const valores = [...Object.values(datos), id];
+  const camposValidos = ['nombre', 'descripcion', 'activo'];
+  const datosLimpios = {};
+
+  Object.keys(datos).forEach(key => {
+    if (camposValidos.includes(key)) {
+      datosLimpios[key] = datos[key];
+    }
+  });
+
+  if (Object.keys(datosLimpios).length === 0) return false;
+
+  const campos = Object.keys(datosLimpios).map(key => `${key} = ?`).join(', ');
+  const valores = [...Object.values(datosLimpios), id];
+
   const [result] = await pool.query(`UPDATE destinos SET ${campos} WHERE id = ?`, valores);
   return result.affectedRows > 0;
 };
 
-const eliminar = async (id) => { /* ... igual (soft delete) ... */ };
+// Borrado lógico (desactivar)
+const eliminar = async (id) => {
+  const [result] = await pool.query('UPDATE destinos SET activo = 0 WHERE id = ?', [id]);
+  return result.affectedRows > 0;
+};
 
-// 3. AGREGAR ESTO (Borrado real)
+// Borrado real
 const eliminarPermanente = async (id) => {
   const [result] = await pool.query('DELETE FROM destinos WHERE id = ?', [id]);
   return result.affectedRows > 0;

@@ -1,4 +1,5 @@
 const destinosModel = require('./destinos.model');
+const { MENSAJES_ERROR } = require('../utils/constants');
 
 const obtenerTodos = async (req, res, next) => {
   try {
@@ -19,11 +20,13 @@ const crear = async (req, res, next) => {
   }
 };
 
-// AGREGAR ESTA FUNCIÓN DE ACTUALIZAR
 const actualizar = async (req, res, next) => {
   try {
     const { id } = req.params;
-    await destinosModel.actualizar(id, req.body);
+    const exito = await destinosModel.actualizar(id, req.body);
+    if (!exito) {
+      return res.status(404).json({ error: 'Destino no encontrado', mensaje: MENSAJES_ERROR.DESTINO_NO_ENCONTRADO });
+    }
     res.json({ mensaje: 'Actualizado correctamente' });
   } catch (error) { next(error); }
 };

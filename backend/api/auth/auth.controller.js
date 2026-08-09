@@ -114,7 +114,7 @@ const verificarSesion = async (req, res, next) => {
 };
 
 /**
- * Registro de nueva cajera (solo para desarrollo/admin)
+ * Registro de nueva cajera (requiere estar autenticado como cajera)
  * POST /api/auth/registro
  */
 const registro = async (req, res, next) => {

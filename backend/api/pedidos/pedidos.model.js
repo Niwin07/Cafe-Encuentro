@@ -1,53 +1,8 @@
 const pool = require('../../conexion');
 
-/**
- * Crear un nuevo pedido (cabecera)
- */
-const crear = async (pedido) => {
-  const query = `
-    INSERT INTO pedidos (id, cliente, cajera_id, total, notas, estado_general)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `;
-
-  const valores = [
-    pedido.id,
-    pedido.cliente,
-    pedido.cajera_id,
-    pedido.total || 0,
-    pedido.notas || null,
-    pedido.estado_general || 'Pendiente'
-  ];
-
-  await pool.query(query, valores);
-  return pedido.id;
-};
-
-/**
- * Crear un item del pedido
- */
-const crearItem = async (item) => {
-  const query = `
-    INSERT INTO pedidos_items (
-      pedido_id, producto_id, cantidad, precio_unitario, subtotal,
-      acompanamiento_id, instrucciones_especiales, estado, destino_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-
-  const valores = [
-    item.pedido_id,
-    item.producto_id,
-    item.cantidad,
-    item.precio_unitario,
-    item.subtotal,
-    item.acompanamiento_id || null,
-    item.instrucciones_especiales || null,
-    item.estado || 'Pendiente',
-    item.destino_id
-  ];
-
-  const [result] = await pool.query(query, valores);
-  return result.insertId;
-};
+// Nota: la creación de pedidos vive enteramente en pedidos.controller.js
+// (necesita transacción + bloqueo de filas para descontar stock de forma
+// segura), por eso este modelo no expone crear/crearItem.
 
 /**
  * Obtener pedido por ID con todos sus items
@@ -284,20 +239,6 @@ const obtenerItemsPorPedidoId = async (pedidoId) => {
 };
 
 /**
- * Cancelar todos los items de un pedido
- */
-const cancelarItemsPorPedidoId = async (pedidoId) => {
-  const query = `
-    UPDATE pedidos_items
-    SET estado = 'Cancelado'
-    WHERE pedido_id = ? AND estado != 'Entregado' AND estado != 'Cancelado'
-  `;
-
-  const [result] = await pool.query(query, [pedidoId]);
-  return result.affectedRows;
-};
-
-/**
  * Obtener un item específico por ID
  */
 const obtenerItemPorId = async (itemId) => {
@@ -317,15 +258,6 @@ const obtenerItemPorId = async (itemId) => {
 
   const [rows] = await pool.query(query, [itemId]);
   return rows[0];
-};
-
-/**
- * Verificar si un pedido existe
- */
-const existe = async (pedidoId) => {
-  const query = `SELECT id FROM pedidos WHERE id = ?`;
-  const [rows] = await pool.query(query, [pedidoId]);
-  return rows.length > 0;
 };
 
 /**
@@ -368,35 +300,7 @@ const contarTodos = async (filtros = {}) => {
   return rows[0].total;
 };
 
-/**
- * Actualizar total del pedido
- */
-const actualizarTotal = async (pedidoId, nuevoTotal) => {
-  const query = `
-    UPDATE pedidos
-    SET total = ?
-    WHERE id = ?
-  `;
-
-  const [result] = await pool.query(query, [nuevoTotal, pedidoId]);
-  return result.affectedRows > 0;
-};
-
-const eliminar = async (pedidoId) => {
-  // Primero eliminamos los items asociados
-  const queryItems = `DELETE FROM pedidos_items WHERE pedido_id = ?`;
-  await pool.query(queryItems, [pedidoId]);
-
-  // Luego eliminamos la cabecera del pedido
-  const queryPedido = `DELETE FROM pedidos WHERE id = ?`;
-  const [result] = await pool.query(queryPedido, [pedidoId]);
-  
-  return result.affectedRows > 0;
-};
-
 module.exports = {
-  crear,
-  crearItem,
   obtenerPorId,
   obtenerTodos,
   obtenerItemsPorDestino,
@@ -404,10 +308,6 @@ module.exports = {
   actualizarEstadoGeneral,
   actualizarEstadoItem,
   obtenerItemsPorPedidoId,
-  cancelarItemsPorPedidoId,
   obtenerItemPorId,
-  existe,
-  contarTodos,
-  actualizarTotal,
-  eliminar
+  contarTodos
 };

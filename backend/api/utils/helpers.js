@@ -122,21 +122,6 @@ const calcularTotalPedido = (items) => {
 };
 
 /**
- * Sanitiza un string para prevenir inyecciones SQL básicas
- * @param {string} str - String a sanitizar
- * @returns {string} String sanitizado
- */
-const sanitizarString = (str) => {
-  if (typeof str !== 'string') return str;
-  
-  return str
-    .trim()
-    .replace(/[<>]/g, '') // Eliminar < y >
-    .replace(/['"]/g, '') // Eliminar comillas
-    .substring(0, 500); // Limitar longitud
-};
-
-/**
  * Crea un objeto de paginación
  * @param {number} pagina - Número de página actual
  * @param {number} limite - Cantidad de items por página
@@ -226,20 +211,6 @@ const esFechaValida = (fecha) => {
   return date instanceof Date && !isNaN(date);
 };
 
-/**
- * Genera un hash simple para passwords (SOLO PARA DESARROLLO)
- * En producción usar bcrypt
- */
-const hashSimple = (texto) => {
-  let hash = 0;
-  for (let i = 0; i < texto.length; i++) {
-    const char = texto.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return hash.toString();
-};
-
 module.exports = {
   generarIdPedido,
   calcularEstadoGeneral,
@@ -248,11 +219,9 @@ module.exports = {
   validarStock,
   calcularSubtotal,
   calcularTotalPedido,
-  sanitizarString,
   crearPaginacion,
   manejarErrorDB,
   crearQueryString,
   agruparPor,
-  esFechaValida,
-  hashSimple
+  esFechaValida
 };

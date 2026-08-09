@@ -9,8 +9,29 @@ const apiRoutes = require('./api/main');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// CORS: si se configura ALLOWED_ORIGINS (lista separada por comas) se
+// restringe a esos orígenes; si no está configurada, se mantiene el
+// comportamiento permisivo anterior para no romper despliegues existentes
+// (frontend y backend viven bajo el mismo dominio en producción, así que
+// esto solo aplica a llamadas cross-origin: dev local, previews, etc).
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
+  : null;
+
+const corsOptions = allowedOrigins
+  ? {
+      origin: (origin, callback) => {
+        // Sin header Origin (curl, Postman, server-to-server) o en la whitelist
+        if (!origin || allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+        callback(new Error('No permitido por CORS'));
+      }
+    }
+  : {};
+
 // Middlewares globales
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(sanitizar); // ⭐ Sanitizar todos los datos de entrada

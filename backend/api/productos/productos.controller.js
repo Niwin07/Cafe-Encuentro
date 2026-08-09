@@ -18,16 +18,15 @@ const obtenerTodos = async (req, res, next) => {
 
     const productos = await productosModel.obtenerTodos(filtros);
 
-    // Si es público (sin token), obtener también acompañamientos
-    const productosConAcompanamientos = await Promise.all(
-      productos.map(async (producto) => {
-        const acompanamientos = await productosModel.obtenerAcompanamientos(producto.id);
-        return {
-          ...producto,
-          acompanamientos
-        };
-      })
+    // Una sola consulta para los acompañamientos de todos los productos
+    // (antes se hacía una consulta por producto — N+1)
+    const acompanamientosPorProducto = await productosModel.obtenerAcompanamientosPorProductos(
+      productos.map(p => p.id)
     );
+    const productosConAcompanamientos = productos.map(producto => ({
+      ...producto,
+      acompanamientos: acompanamientosPorProducto[producto.id] || []
+    }));
 
     res.json({
       total: productosConAcompanamientos.length,
@@ -51,30 +50,28 @@ const obtenerMenu = async (req, res, next) => {
 
     const productos = await productosModel.obtenerTodos(filtros);
 
-    // Obtener acompañamientos para cada producto
-    const menu = await Promise.all(
-      productos.map(async (producto) => {
-        const acompanamientos = await productosModel.obtenerAcompanamientos(producto.id);
-        return {
-          id: producto.id,
-          nombre: producto.nombre,
-          descripcion: producto.descripcion,
-          ingredientes: producto.ingredientes,
-          precio: producto.precio,
-          stock: producto.stock,
-          imagen_url: producto.imagen_url,
-          categoria: {
-            id: producto.categoria_id,
-            nombre: producto.categoria_nombre
-          },
-          destino: {
-            id: producto.destino_id,
-            nombre: producto.destino_nombre
-          },
-          acompanamientos
-        };
-      })
+    // Una sola consulta para los acompañamientos de todos los productos
+    const acompanamientosPorProducto = await productosModel.obtenerAcompanamientosPorProductos(
+      productos.map(p => p.id)
     );
+    const menu = productos.map(producto => ({
+      id: producto.id,
+      nombre: producto.nombre,
+      descripcion: producto.descripcion,
+      ingredientes: producto.ingredientes,
+      precio: producto.precio,
+      stock: producto.stock,
+      imagen_url: producto.imagen_url,
+      categoria: {
+        id: producto.categoria_id,
+        nombre: producto.categoria_nombre
+      },
+      destino: {
+        id: producto.destino_id,
+        nombre: producto.destino_nombre
+      },
+      acompanamientos: acompanamientosPorProducto[producto.id] || []
+    }));
 
     res.json({
       total: menu.length,

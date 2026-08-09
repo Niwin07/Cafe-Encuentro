@@ -226,7 +226,6 @@ const cancelar = async (req, res, next) => {
     if (connection) await connection.rollback();
     const status = error.status || 500;
     const msg = error.message || 'Error al cancelar';
-    if (connection) connection.release();
     next({ status, message: msg });
   } finally {
     if (connection) connection.release();
@@ -282,7 +281,6 @@ const eliminar = async (req, res, next) => {
     if (connection) await connection.rollback();
     const status = error.status || 500;
     const msg = error.message || 'Error eliminando';
-    if (connection) connection.release();
     next({ status, message: msg });
   } finally {
     if (connection) connection.release();
