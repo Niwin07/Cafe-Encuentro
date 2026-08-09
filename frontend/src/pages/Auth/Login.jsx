@@ -1,6 +1,7 @@
 import { useState, useContext } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import api from '../../services/api';
+import { Coffee, User, Lock, Eye, EyeOff, ArrowRight, Loader2, AlertTriangle, ShieldCheck } from 'lucide-react';
 
 const Login = () => {
   const { login } = useContext(AuthContext);
@@ -87,7 +88,7 @@ const Login = () => {
             transform: 'rotate(-5deg)',
             transition: 'transform 0.3s ease'
           }}>
-            <span style={{ fontSize: '3.5rem' }}>☕</span>
+            <Coffee size={56} color="white" aria-hidden="true" />
           </div>
         </div>
 
@@ -123,7 +124,7 @@ const Login = () => {
 
           {/* Alerta de error */}
           {error && (
-            <div style={{ 
+            <div style={{
               background: 'var(--error-light)',
               border: '2px solid var(--error)',
               padding: '1rem',
@@ -132,34 +133,36 @@ const Login = () => {
               display: 'flex',
               alignItems: 'center',
               gap: '0.75rem'
-            }} className="animate-fade-in">
-              <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+            }} className="animate-fade-in" role="alert">
+              <AlertTriangle size={20} color="var(--error)" aria-hidden="true" style={{ flexShrink: 0 }} />
               <span style={{ color: 'var(--error)', fontWeight: '500', fontSize: '0.875rem' }}>
                 {error}
               </span>
             </div>
           )}
-          
+
           {/* Formulario */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
             {/* Campo Usuario */}
             <div>
-              <label>Usuario</label>
+              <label htmlFor="login-usuario">Usuario</label>
               <div style={{ position: 'relative' }}>
-                <div style={{
-                  position: 'absolute',
-                  left: '1rem',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  fontSize: '1.25rem',
-                  pointerEvents: 'none',
-                  color: 'var(--cafe-claro)'
-                }}>
-                  👤
-                </div>
-                <input 
-                  type="text" 
+                <User
+                  size={18}
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    left: '1rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    pointerEvents: 'none',
+                    color: 'var(--cafe-claro)'
+                  }}
+                />
+                <input
+                  id="login-usuario"
+                  type="text"
                   required
                   value={formData.usuario}
                   onChange={(e) => setFormData({...formData, usuario: e.target.value})}
@@ -169,34 +172,36 @@ const Login = () => {
                 />
               </div>
             </div>
-            
+
             {/* Campo Contraseña */}
             <div>
-              <label>Contraseña</label>
+              <label htmlFor="login-password">Contraseña</label>
               <div style={{ position: 'relative' }}>
-                <div style={{
-                  position: 'absolute',
-                  left: '1rem',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  fontSize: '1.25rem',
-                  pointerEvents: 'none',
-                  color: 'var(--cafe-claro)'
-                }}>
-                  🔒
-                </div>
-                <input 
+                <Lock
+                  size={18}
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    left: '1rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    pointerEvents: 'none',
+                    color: 'var(--cafe-claro)'
+                  }}
+                />
+                <input
+                  id="login-password"
                   type={mostrarPassword ? "text" : "password"}
                   required
                   value={formData.password}
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
                   placeholder="••••••••"
                   style={{ paddingLeft: '3rem', paddingRight: '3rem' }}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSubmit(e)}
                 />
                 <button
                   type="button"
                   onClick={() => setMostrarPassword(!mostrarPassword)}
+                  aria-label={mostrarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                   style={{
                     position: 'absolute',
                     right: '1rem',
@@ -205,44 +210,41 @@ const Login = () => {
                     background: 'none',
                     border: 'none',
                     cursor: 'pointer',
-                    fontSize: '1.25rem',
+                    display: 'flex',
                     color: 'var(--text-muted)',
                     transition: 'color 0.2s'
                   }}
-                  onMouseEnter={(e) => e.target.style.color = 'var(--cafe-claro)'}
-                  onMouseLeave={(e) => e.target.style.color = 'var(--text-muted)'}
+                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--cafe-claro)'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
                 >
-                  {mostrarPassword ? '👁️' : '👁️‍🗨️'}
+                  {mostrarPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
 
             {/* Botón Submit */}
-            <button 
-              onClick={handleSubmit}
+            <button
+              type="submit"
               disabled={loading}
               className="btn btn-primary btn-lg"
-              style={{ 
+              style={{
                 marginTop: '0.5rem',
                 width: '100%'
               }}
             >
               {loading ? (
                 <>
-                  <svg className="animate-spin" style={{ width: '20px', height: '20px' }} viewBox="0 0 24 24">
-                    <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                    <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                  <Loader2 size={20} className="animate-spin" aria-hidden="true" />
                   <span>Verificando...</span>
                 </>
               ) : (
                 <>
                   <span>Ingresar al Sistema</span>
-                  <span>→</span>
+                  <ArrowRight size={18} aria-hidden="true" />
                 </>
               )}
             </button>
-          </div>
+          </form>
 
           {/* Footer */}
           <div style={{ marginTop: '2rem', textAlign: 'center' }}>
@@ -253,17 +255,17 @@ const Login = () => {
         </div>
 
         {/* Info de seguridad */}
-        <div style={{ 
-          marginTop: '1.5rem', 
-          textAlign: 'center', 
-          fontSize: '0.75rem', 
+        <div style={{
+          marginTop: '1.5rem',
+          textAlign: 'center',
+          fontSize: '0.75rem',
           color: 'var(--text-muted)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           gap: '0.5rem'
         }}>
-          <span>🔒</span>
+          <ShieldCheck size={14} aria-hidden="true" />
           <span>Conexión segura</span>
           <span>•</span>
           <span>Café Encuentro © 2025-2026</span>

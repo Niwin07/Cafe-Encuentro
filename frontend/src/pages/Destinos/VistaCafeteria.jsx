@@ -1,8 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../../services/api';
+import { useToast } from '../../context/ToastContext';
+import {
+  Bell, Coffee, Sparkles, Clock, User, Briefcase, Utensils, AlertTriangle,
+  Hourglass, ArrowRight,
+} from 'lucide-react';
 import './VistaCafeteria.css';
 
 const VistaCafeteria = () => {
+  const toast = useToast();
   const [pedidos, setPedidos] = useState({});
   const [ultimoUpdate, setUltimoUpdate] = useState(new Date());
   const [permisoSonido, setPermisoSonido] = useState(false);
@@ -63,7 +69,7 @@ const VistaCafeteria = () => {
         setPermisoSonido(true);
         permisoSonidoRef.current = true;
       })
-      .catch(e => alert("No se pudo activar el audio."));
+      .catch(() => toast.error('No se pudo activar el audio.'));
   };
 
   useEffect(() => {
@@ -82,7 +88,7 @@ const VistaCafeteria = () => {
         await api.patch(`/pedidos/items/${itemId}/estado`, { estado: nuevoEstado });
         cargarPedidos();
       } catch (error) {
-        alert('Error actualizando estado');
+        toast.error('Error actualizando el estado del pedido: ' + (error.response?.data?.mensaje || error.message));
       }
     }
   };
@@ -99,10 +105,10 @@ const VistaCafeteria = () => {
 
   const getEstadoIcon = (estado) => {
     switch(estado) {
-      case 'Pendiente': return '⏳';
-      case 'En Preparación': return '☕';
-      case 'Listo': return '✨';
-      default: return '➡️';
+      case 'Pendiente': return <Hourglass size={16} aria-hidden="true" />;
+      case 'En Preparación': return <Coffee size={16} aria-hidden="true" />;
+      case 'Listo': return <Sparkles size={16} aria-hidden="true" />;
+      default: return <ArrowRight size={16} aria-hidden="true" />;
     }
   };
 
@@ -115,7 +121,7 @@ const VistaCafeteria = () => {
       {/* Botón flotante para activar sonido */}
       {!permisoSonido && (
         <button className="btn-sound-floating-cafe" onClick={activarSonido}>
-          <span style={{ fontSize: '1.2rem' }}>🔔</span>
+          <Bell size={19} aria-hidden="true" />
           Activar Sonido
         </button>
       )}
@@ -125,11 +131,11 @@ const VistaCafeteria = () => {
         <div className="cafeteria-header-content">
           <div className="cafeteria-title-section">
             <h1>
-              <span className="cafeteria-emoji">☕</span>
+              <Coffee className="cafeteria-emoji" size={32} aria-hidden="true" />
               Cafetería - Pedidos Activos
             </h1>
             <div className="cafeteria-subtitle">
-              <span>✨</span>
+              <Sparkles size={14} aria-hidden="true" />
               <span>Preparando las mejores bebidas</span>
             </div>
           </div>
@@ -158,7 +164,7 @@ const VistaCafeteria = () => {
       {/* ESTADO VACÍO */}
       {Object.keys(pedidos).length === 0 ? (
         <div className="cafeteria-vacio">
-          <span className="cafeteria-vacio-icon">☕</span>
+          <Coffee size={64} className="cafeteria-vacio-icon" aria-hidden="true" />
           <h2>¡Momento de descanso!</h2>
           <p>No hay pedidos pendientes en este momento</p>
         </div>
@@ -167,25 +173,25 @@ const VistaCafeteria = () => {
         <div className="cafeteria-grid">
           {Object.entries(pedidos).map(([pedidoId, items]) => (
             <div key={pedidoId} className="cafeteria-card">
-              
+
               <div className="cafeteria-card-header">
                 <div className="cafeteria-header-top">
                   <span className="cafeteria-pedido-id">#{pedidoId.slice(-6)}</span>
                   <div className="cafeteria-time-badge">
-                    <span className="cafeteria-time-icon">🕐</span>
+                    <Clock size={14} className="cafeteria-time-icon" aria-hidden="true" />
                     <span className="cafeteria-time">
                       {new Date(items[0].created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                     </span>
                   </div>
                 </div>
-                
+
                 <div className="cafeteria-header-bottom">
                   <div className="cafeteria-cliente">
-                    <span className="cafeteria-cliente-icon">👤</span>
+                    <User size={16} className="cafeteria-cliente-icon" aria-hidden="true" />
                     <span>{items[0].cliente}</span>
                   </div>
                   <div className="cafeteria-cajera-badge">
-                    <span>💼</span>
+                    <Briefcase size={13} aria-hidden="true" />
                     <span>{items[0].cajera_nombre}</span>
                   </div>
                 </div>
@@ -202,24 +208,24 @@ const VistaCafeteria = () => {
                         </div>
                         {item.acompanamiento_nombre && (
                           <div className="cafeteria-item-acomp">
-                            <span>🥄</span> {item.acompanamiento_nombre}
+                            <Utensils size={13} aria-hidden="true" /> {item.acompanamiento_nombre}
                           </div>
                         )}
                         {item.instrucciones_especiales && (
                           <div className="cafeteria-item-nota">
-                            ⚠️ {item.instrucciones_especiales}
+                            <AlertTriangle size={14} aria-hidden="true" /> {item.instrucciones_especiales}
                           </div>
                         )}
                       </div>
-                      
-                      <button 
+
+                      <button
                         onClick={() => avanzarEstado(item.id, item.estado)}
                         disabled={item.estado === 'Listo'}
                         className={`cafeteria-estado-btn ${getEstadoClass(item.estado)}`}
                       >
-                        <span>{getEstadoIcon(item.estado)}</span>
+                        {getEstadoIcon(item.estado)}
                         <span>{item.estado}</span>
-                        {item.estado !== 'Listo' && <span>→</span>}
+                        {item.estado !== 'Listo' && <ArrowRight size={15} aria-hidden="true" />}
                       </button>
                     </div>
                   </div>

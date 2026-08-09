@@ -67,7 +67,7 @@
   padding: 0.625rem 0.875rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-default);
-  font-size: 0.9375rem;
+  font-size: 1rem;
   color: var(--cafe-oscuro);
   font-weight: 600;
   transition: all var(--transition-base);
@@ -229,8 +229,10 @@
 }
 
 .registros-btn-accion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.5rem 0.75rem;
-  font-size: 1.125rem;
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -260,15 +262,24 @@
 
 /* Estado de carga */
 .registros-loading {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
   padding: 3rem;
-  color: var(--text-muted);
+  color: var(--cafe-claro);
 }
 
 .registros-vacio {
   text-align: center;
   padding: 3rem;
   color: var(--text-muted);
+}
+
+.registros-vacio-icon {
+  display: block;
+  margin: 0 auto 0.75rem;
+  opacity: 0.4;
 }
 
 /* ========== MODAL DE DETALLE ========== */
@@ -406,6 +417,9 @@
 }
 
 .registros-modal-item-nota {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.25rem;
   font-size: 0.8125rem;
   color: var(--warning);
   font-style: italic;
@@ -442,12 +456,24 @@
   }
 
   .registros-title-section {
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .registros-title-section h1 {
+    font-size: 1.5rem;
   }
 
   .registros-filtros {
-    flex-wrap: wrap;
-    justify-content: center;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .registros-date-arrow {
+    align-self: center;
+    margin-top: 0;
+    transform: rotate(90deg);
   }
 
   .registros-resumen {
@@ -459,18 +485,88 @@
     min-width: 120px;
   }
 
+  /* Tabla -> lista de tarjetas: mejor que scroll horizontal en touch */
   .registros-tabla-container {
-    overflow-x: auto;
+    background: transparent;
+    box-shadow: none;
+    border: none;
   }
 
   .registros-tabla {
-    min-width: 700px;
+    min-width: 0;
+  }
+
+  .registros-tabla thead {
+    display: none;
+  }
+
+  .registros-tabla, .registros-tabla tbody, .registros-tabla tr, .registros-tabla td {
+    display: block;
+    width: 100%;
+  }
+
+  .registros-tabla tbody tr {
+    background: white;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    margin-bottom: 1rem;
+    overflow: hidden;
+  }
+
+  .registros-tabla td {
+    padding: 0.625rem 1rem;
+    border-bottom: 1px solid var(--border-light);
+    text-align: left !important;
+  }
+
+  .registros-tabla td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 0.375rem;
+  }
+
+  .registros-tabla td:first-child {
+    padding-top: 1rem;
+  }
+
+  .registros-tabla td:first-child::before,
+  .registros-tabla td:last-child::before {
+    content: none;
+  }
+
+  .registros-tabla td:last-child {
+    background: var(--bg-primary);
+    border-bottom: none;
+  }
+
+  .registros-tabla .registros-acciones {
+    justify-content: flex-start;
+  }
+
+  .registros-tabla td.registros-vacio {
+    text-align: center !important;
+    padding: 3rem 1rem;
   }
 
   .registros-modal {
     width: 100%;
     max-width: 100%;
     border-radius: var(--radius-lg);
+  }
+
+  .registros-modal-close {
+    width: 44px;
+    height: 44px;
+  }
+
+  .registros-btn-accion {
+    min-width: 44px;
+    min-height: 44px;
   }
 }
 
@@ -494,15 +590,25 @@
 /* ========== TABS DE SECTOR (NUEVO) ========== */
 .registros-tabs {
   display: flex;
+  width: 100%;
+  min-width: 0;
   background: white;
   padding: 0.375rem;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   gap: 0.5rem;
   border: 1px solid var(--border-light);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 
 .registros-tab {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  white-space: nowrap;
+  gap: 0.4rem;
   padding: 0.5rem 1.25rem;
   border: none;
   background: transparent;

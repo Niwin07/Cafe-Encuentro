@@ -2,7 +2,7 @@
    MENÚ CAFÉ - REDISEÑO UX INTUITIVO (COMPLETO)
    ============================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700&display=swap');
+/* Tipografía (Playfair Display / Inter) ya cargada globalmente desde index.css */
 
 * {
   box-sizing: border-box;
@@ -10,7 +10,7 @@
 
 .menu-wrapper {
   min-height: 100vh;
-  background: #faf8f5;
+  background: var(--bg-primary);
   position: relative;
   overflow-x: hidden;
 }
@@ -41,7 +41,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #faf8f5 0%, #f4e9d8 100%);
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--crema) 100%);
 }
 
 .loading-content {
@@ -59,7 +59,7 @@
 .coffee-icon {
   width: 100px;
   height: 100px;
-  color: #8b5a3c;
+  color: var(--cafe-claro);
   filter: drop-shadow(0 10px 30px rgba(139, 90, 60, 0.3));
   animation: float 3s ease-in-out infinite;
 }
@@ -92,17 +92,17 @@
 }
 
 .loading-title {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: 'Playfair Display', serif;
   font-size: 2.5rem;
-  font-weight: 400;
+  font-weight: 900;
   letter-spacing: 2px;
-  color: #3e2723;
+  color: var(--cafe-oscuro);
   margin: 0 0 0.5rem;
   text-transform: uppercase;
 }
 
 .loading-subtitle {
-  color: #5d4037;
+  color: var(--cafe-medio);
   font-size: 1rem;
   margin: 0;
   font-style: italic;
@@ -136,7 +136,7 @@
 .brand-icon {
   width: 48px;
   height: 48px;
-  background: linear-gradient(135deg, #8b5a3c 0%, #d4a373 100%);
+  background: linear-gradient(135deg, var(--cafe-claro) 0%, var(--dorado) 100%);
   border-radius: 14px;
   display: flex;
   align-items: center;
@@ -162,13 +162,13 @@
 }
 
 .brand-title {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: 'Playfair Display', serif;
   font-size: 1.75rem;
-  font-weight: 400;
+  font-weight: 900;
   letter-spacing: 2px;
   margin: 0;
   line-height: 1;
-  background: linear-gradient(135deg, #3e2723 0%, #8b5a3c 50%, #d4a373 100%);
+  background: linear-gradient(135deg, var(--cafe-oscuro) 0%, var(--cafe-claro) 50%, var(--dorado) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -183,7 +183,7 @@
 
 .brand-subtitle {
   font-size: 0.8125rem;
-  color: #8b5a3c;
+  color: var(--cafe-claro);
   margin: 0.25rem 0 0;
   font-style: italic;
   letter-spacing: 0.5px;
@@ -198,10 +198,10 @@
 .refresh-btn {
   width: 44px;
   height: 44px;
-  background: linear-gradient(135deg, #f4e9d8 0%, #e8d4b8 100%);
+  background: linear-gradient(135deg, var(--crema) 0%, var(--crema-oscuro) 100%);
   border: 1px solid rgba(139, 90, 60, 0.15);
   border-radius: 12px;
-  color: #8b5a3c;
+  color: var(--cafe-claro);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -211,7 +211,7 @@
 }
 
 .refresh-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #e8d4b8 0%, #d4b5a1 100%);
+  background: linear-gradient(135deg, var(--crema-oscuro) 0%, var(--border-default) 100%);
   transform: translateY(-2px) rotate(90deg);
   box-shadow: 0 4px 16px rgba(139, 90, 60, 0.2);
 }
@@ -235,7 +235,7 @@
   background: white;
   border: 1px solid rgba(139, 90, 60, 0.15);
   border-radius: 12px;
-  color: #8b5a3c;
+  color: var(--cafe-claro);
   cursor: pointer;
   display: none;
   align-items: center;
@@ -250,7 +250,7 @@
 }
 
 .view-toggle-btn:hover {
-  border-color: #8b5a3c;
+  border-color: var(--cafe-claro);
   box-shadow: 0 2px 8px rgba(139, 90, 60, 0.15);
 }
 
@@ -271,7 +271,7 @@
   left: 1.125rem;
   top: 50%;
   transform: translateY(-50%);
-  color: #8b5a3c;
+  color: var(--cafe-claro);
   pointer-events: none;
   width: 20px;
   height: 20px;
@@ -285,14 +285,14 @@
   border-radius: 14px;
   background: white;
   font-size: 1rem;
-  color: #2c1810;
+  color: var(--espresso);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 2px 8px rgba(139, 90, 60, 0.05);
 }
 
 .search-input:focus {
   outline: none;
-  border-color: #8b5a3c;
+  border-color: var(--cafe-claro);
   box-shadow: 0 4px 20px rgba(139, 90, 60, 0.12), 0 0 0 3px rgba(139, 90, 60, 0.08);
   transform: translateY(-1px);
 }
@@ -309,9 +309,9 @@
   transform: translateY(-50%);
   width: 36px;
   height: 36px;
-  background: #f4e9d8;
+  background: var(--crema);
   border: none;
-  color: #8b5a3c;
+  color: var(--cafe-claro);
   cursor: pointer;
   border-radius: 10px;
   display: flex;
@@ -321,7 +321,7 @@
 }
 
 .clear-btn:hover {
-  background: #8b5a3c;
+  background: var(--cafe-claro);
   color: white;
   transform: translateY(-50%) scale(1.1);
 }
@@ -377,7 +377,7 @@
   border-radius: 21px;
   font-weight: 600;
   font-size: 0.9375rem;
-  color: #5d4037;
+  color: var(--cafe-medio);
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
@@ -388,13 +388,13 @@
 }
 
 .category-chip:hover {
-  border-color: #8b5a3c;
+  border-color: var(--cafe-claro);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(139, 90, 60, 0.15);
 }
 
 .category-chip.active {
-  background: linear-gradient(135deg, #8b5a3c 0%, #d4a373 100%);
+  background: linear-gradient(135deg, var(--cafe-claro) 0%, var(--dorado) 100%);
   color: white;
   border-color: transparent;
   box-shadow: 0 4px 16px rgba(139, 90, 60, 0.3);
@@ -431,24 +431,24 @@
   padding: 1rem 1.25rem;
   background: linear-gradient(135deg, rgba(139, 90, 60, 0.04), rgba(212, 163, 115, 0.04));
   border-radius: 12px;
-  border-left: 3px solid #8b5a3c;
+  border-left: 3px solid var(--cafe-claro);
 }
 
 .results-text {
   font-size: 0.9375rem;
-  color: #5d4037;
+  color: var(--cafe-medio);
   margin: 0;
   font-weight: 500;
 }
 
 .results-text strong {
-  color: #3e2723;
+  color: var(--cafe-oscuro);
   font-weight: 700;
   font-size: 1.0625rem;
 }
 
 .filter-active {
-  color: #8b5a3c;
+  color: var(--cafe-claro);
   font-weight: 600;
 }
 
@@ -523,7 +523,7 @@
 }
 
 .product:hover {
-  border-color: #8b5a3c;
+  border-color: var(--cafe-claro);
   transform: translateY(-6px);
   box-shadow: 0 12px 32px rgba(139, 90, 60, 0.18);
 }
@@ -539,7 +539,7 @@
 
 .product-media {
   position: relative;
-  background: linear-gradient(135deg, #f4e9d8 0%, #e8d4b8 100%);
+  background: linear-gradient(135deg, var(--crema) 0%, var(--crema-oscuro) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -658,7 +658,7 @@
   font-family: 'Playfair Display', serif;
   font-size: 1.25rem;
   font-weight: 700;
-  color: #3e2723;
+  color: var(--cafe-oscuro);
   margin: 0;
   line-height: 1.25;
   flex: 1;
@@ -667,14 +667,14 @@
 }
 
 .product:hover .product-title {
-  color: #8b5a3c;
+  color: var(--cafe-claro);
 }
 
 .product-tag {
   flex-shrink: 0;
   padding: 0.25rem 0.625rem;
   background: rgba(139, 90, 60, 0.08);
-  color: #8b5a3c;
+  color: var(--cafe-claro);
   border-radius: 10px;
   font-size: 0.6875rem;
   font-weight: 600;
@@ -718,11 +718,11 @@
 }
 
 .product-price {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: 'Playfair Display', serif;
   font-size: 1.75rem;
-  font-weight: 400;
+  font-weight: 900;
   letter-spacing: 0.5px;
-  background: linear-gradient(135deg, #8b5a3c 0%, #d4a373 100%);
+  background: linear-gradient(135deg, var(--cafe-claro) 0%, var(--dorado) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -739,13 +739,13 @@
 }
 
 .stock-available {
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: var(--success-light);
+  color: var(--success);
 }
 
 .stock-low {
-  background: #fff3e0;
-  color: #e65100;
+  background: var(--warning-light);
+  color: var(--warning-dark);
 }
 
 /* ============================================
@@ -769,7 +769,7 @@
   font-family: 'Playfair Display', serif;
   font-size: 1.75rem;
   font-weight: 700;
-  color: #3e2723;
+  color: var(--cafe-oscuro);
   margin: 0 0 0.75rem;
 }
 
@@ -782,7 +782,7 @@
 
 .empty-btn {
   padding: 0.875rem 1.75rem;
-  background: linear-gradient(135deg, #8b5a3c 0%, #d4a373 100%);
+  background: linear-gradient(135deg, var(--cafe-claro) 0%, var(--dorado) 100%);
   color: white;
   border: none;
   border-radius: 12px;
@@ -854,7 +854,7 @@
 
   .search-input {
     height: 48px;
-    font-size: 0.9375rem;
+    font-size: 1rem;
   }
 
   .categories-section {
@@ -862,8 +862,13 @@
   }
 
   .category-chip {
-    height: 38px;
+    height: 40px;
     padding: 0 1rem;
     font-size: 0.875rem;
+  }
+
+  .clear-btn {
+    width: 40px;
+    height: 40px;
   }
 }
