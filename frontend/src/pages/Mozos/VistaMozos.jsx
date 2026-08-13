@@ -1,29 +1,54 @@
-import { useState, useEffect } from 'react';
-import { Search, Grid, List, X, Coffee, RefreshCw } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Coffee, Grid2x2, List, RefreshCw, Search, X } from 'lucide-react';
 import api from '../../services/api';
-import './VistaMozos.css';
+import Tabs from '../../components/ui/Tabs';
+import Badge from '../../components/ui/Badge';
+import EmptyState from '../../components/ui/EmptyState';
+import { SkeletonGrid } from '../../components/ui/Skeleton';
+import { fieldControlClasses } from '../../components/ui/Input';
+import IconButton from '../../components/ui/IconButton';
+import { cn } from '../../lib/cn';
 
-const VistaMozos = () => {
+const ICONOS_CATEGORIA = {
+  Bebidas: '🥤',
+  Cafés: '☕',
+  Café: '☕',
+  Comidas: '🍽️',
+  Desayunos: '🥐',
+  Postres: '🍰',
+  Dulces: '🧁',
+  Snacks: '🍿',
+  Ensaladas: '🥗',
+  Sandwiches: '🥪',
+  Sandwich: '🥪',
+  Pastas: '🍝',
+  Hamburguesas: '🍔',
+  Pizzas: '🍕',
+  Jugos: '🧃',
+  Todos: '🍴',
+};
+
+const iconoDe = (categoria) => ICONOS_CATEGORIA[categoria] || '🍴';
+
+const REFRESCO_MS = 120000;
+
+export default function VistaMozos() {
   const [productos, setProductos] = useState([]);
   const [busqueda, setBusqueda] = useState('');
-  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('Todos');
+  const [categoria, setCategoria] = useState('Todos');
   const [vistaGrid, setVistaGrid] = useState(true);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const cargarInventario = async (isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-    
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+
     try {
-      const res = await api.get('/productos');
-      const prodsActivos = res.data.productos.filter(p => p.stock > 0);
-      setProductos(prodsActivos);
-    } catch (error) {
-      console.error("Error cargando inventario:", error);
+      const { data } = await api.get('/productos');
+      setProductos(data.productos.filter((p) => p.stock > 0));
+    } catch (err) {
+      console.error('Error cargando el menú:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -32,264 +57,213 @@ const VistaMozos = () => {
 
   useEffect(() => {
     cargarInventario();
-    const interval = setInterval(() => cargarInventario(true), 120000);
+    const interval = setInterval(() => cargarInventario(true), REFRESCO_MS);
     return () => clearInterval(interval);
   }, []);
 
-  // Obtener categorías con conteos
-  const categoriasConConteo = ['Todos', ...new Set(productos.map(p => p.categoria_nombre))].map(cat => {
-    const count = cat === 'Todos' 
-      ? productos.length 
-      : productos.filter(p => p.categoria_nombre === cat).length;
-    return { nombre: cat, cantidad: count };
-  });
+  const categorias = ['Todos', ...new Set(productos.map((p) => p.categoria_nombre))];
+  const tabs = categorias.map((nombre) => ({
+    value: nombre,
+    label: `${iconoDe(nombre)} ${nombre}`,
+    count: nombre === 'Todos' ? productos.length : productos.filter((p) => p.categoria_nombre === nombre).length,
+  }));
 
-  const productosFiltrados = productos.filter(p => {
-    const matchBusqueda = p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-                          (p.descripcion && p.descripcion.toLowerCase().includes(busqueda.toLowerCase()));
-    const matchCategoria = categoriaSeleccionada === 'Todos' || p.categoria_nombre === categoriaSeleccionada;
+  const productosFiltrados = productos.filter((p) => {
+    const texto = busqueda.toLowerCase();
+    const matchBusqueda =
+      p.nombre.toLowerCase().includes(texto) || (p.descripcion && p.descripcion.toLowerCase().includes(texto));
+    const matchCategoria = categoria === 'Todos' || p.categoria_nombre === categoria;
     return matchBusqueda && matchCategoria;
   });
 
-  // Iconos mejorados por categoría
-  const getCategoryIcon = (categoria) => {
-    const icons = {
-      'Bebidas': '🥤',
-      'Cafés': '☕',
-      'Café': '☕',
-      'Comidas': '🍽️',
-      'Desayunos': '🥐',
-      'Postres': '🍰',
-      'Dulces': '🧁',
-      'Snacks': '🍿',
-      'Ensaladas': '🥗',
-      'Sandwiches': '🥪',
-      'Sandwich': '🥪',
-      'Pastas': '🍝',
-      'Hamburguesas': '🍔',
-      'Pizzas': '🍕',
-      'Jugos': '🧃',
-      'Todos': '🍴'
-    };
-    return icons[categoria] || '🍴';
+  const limpiarFiltros = () => {
+    setBusqueda('');
+    setCategoria('Todos');
   };
 
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-content">
-          <div className="coffee-cup">
-            <Coffee className="coffee-icon" size={100} />
-          </div>
-          <h2 className="loading-title">Preparando el menú</h2>
-          <p className="loading-subtitle">Un momento por favor...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="menu-wrapper">
-      
-      {/* ===== HEADER SIMPLIFICADO ===== */}
-      <header className="menu-header">
-        <div className="container">
-          <div className="header-content">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div className="brand">
-                <div className="brand-icon">
-                  <Coffee />
-                </div>
-                <div className="brand-text">
-                  <h1 className="brand-title">Menú Digital</h1>
-                  <p className="brand-subtitle">Café Encuentro</p>
-                </div>
-              </div>
-              
-              <div className="header-actions">
-                <button 
-                  onClick={() => cargarInventario(true)} 
-                  className={`refresh-btn ${refreshing ? 'spinning' : ''}`}
-                  disabled={refreshing}
-                  title="Actualizar"
-                  aria-label="Actualizar menú"
-                >
-                  <RefreshCw size={20} />
-                </button>
-                
-                <button
-                  onClick={() => setVistaGrid(!vistaGrid)}
-                  className="view-toggle-btn"
-                  title={vistaGrid ? "Vista lista" : "Vista cuadrícula"}
-                  aria-label={vistaGrid ? "Cambiar a vista lista" : "Cambiar a vista cuadrícula"}
-                >
-                  {vistaGrid ? <List size={20} /> : <Grid size={20} />}
-                </button>
+    <div className="min-h-screen bg-cream-100 pb-12">
+      <header className="sticky top-0 z-20 border-b border-cream-300 bg-cream-50/95 backdrop-blur-sm">
+        <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-coffee-700 text-cream-50 shadow-soft">
+                <Coffee className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <h1 className="truncate text-lg font-bold text-coffee-900 sm:text-xl">Menú Digital</h1>
+                <p className="text-xs text-coffee-500 sm:text-sm">Café Encuentro</p>
               </div>
             </div>
 
-            {/* ===== BÚSQUEDA PROMINENTE ===== */}
-            <div className="search-section">
-              <div className="search-box">
-                <Search className="search-icon" />
-                <input
-                  type="text"
-                  placeholder="Buscar productos..."
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
-                  className="search-input"
-                  aria-label="Buscar productos"
-                />
-                {busqueda && (
-                  <button 
-                    onClick={() => setBusqueda('')} 
-                    className="clear-btn"
-                    aria-label="Limpiar búsqueda"
-                  >
-                    <X size={16} />
-                  </button>
-                )}
-              </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <IconButton
+                label="Actualizar menú"
+                onClick={() => cargarInventario(true)}
+                disabled={refreshing}
+                variant="subtle"
+              >
+                <RefreshCw className={cn('h-[18px] w-[18px]', refreshing && 'animate-spin')} aria-hidden="true" />
+              </IconButton>
+              <IconButton
+                label={vistaGrid ? 'Cambiar a vista lista' : 'Cambiar a vista cuadrícula'}
+                onClick={() => setVistaGrid((v) => !v)}
+                variant="subtle"
+              >
+                {vistaGrid ? <List className="h-[18px] w-[18px]" /> : <Grid2x2 className="h-[18px] w-[18px]" />}
+              </IconButton>
             </div>
           </div>
-        </div>
 
-        {/* ===== CATEGORÍAS STICKY - SIEMPRE VISIBLES ===== */}
-        <div className="categories-section">
-          <div className="container">
-            <div className="categories-scroll">
-              {categoriasConConteo.map(({ nombre, cantidad }) => (
-                <button
-                  key={nombre}
-                  onClick={() => setCategoriaSeleccionada(nombre)}
-                  className={`category-chip ${categoriaSeleccionada === nombre ? 'active' : ''}`}
-                  aria-pressed={categoriaSeleccionada === nombre}
-                >
-                  <span className="category-icon">{getCategoryIcon(nombre)}</span>
-                  <span>{nombre}</span>
-                  <span className="category-count">{cantidad}</span>
-                </button>
-              ))}
-            </div>
+          <div className="relative mt-4">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-coffee-400" aria-hidden="true" />
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar productos..."
+              aria-label="Buscar productos"
+              className={cn(fieldControlClasses, 'pl-10', busqueda && 'pr-10')}
+            />
+            {busqueda && (
+              <button
+                onClick={() => setBusqueda('')}
+                aria-label="Limpiar búsqueda"
+                className="absolute right-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-coffee-400 transition-colors hover:bg-cream-100 hover:text-coffee-600"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+
+          <div className="mt-3 pb-3">
+            <Tabs items={tabs} value={categoria} onChange={setCategoria} />
           </div>
         </div>
       </header>
 
-      {/* ===== CONTENIDO PRINCIPAL ===== */}
-      <main className="container menu-main">
-        
-        {/* Info bar con feedback */}
-        <div className="info-bar">
-          <p className="results-text">
-            {productosFiltrados.length === 0 ? (
-              'No se encontraron productos'
-            ) : (
-              <>
-                Mostrando <strong>{productosFiltrados.length}</strong>{' '}
-                {productosFiltrados.length === 1 ? 'producto' : 'productos'}
-                {categoriaSeleccionada !== 'Todos' && (
-                  <> en <span className="filter-active">{categoriaSeleccionada}</span></>
-                )}
-                {busqueda && (
-                  <> para "<span className="filter-active">{busqueda}</span>"</>
-                )}
-              </>
-            )}
-          </p>
-        </div>
-
-        {/* Grid de productos o estado vacío */}
-        {productosFiltrados.length === 0 ? (
-          <div className="empty">
-            <div className="empty-icon">🔍</div>
-            <h3 className="empty-title">
-              {busqueda ? 'No encontramos resultados' : 'No hay productos'}
-            </h3>
-            <p className="empty-text">
-              {busqueda 
-                ? 'Intenta con otra búsqueda o explora otras categorías.'
-                : 'No hay productos disponibles en esta categoría.'}
-            </p>
-            {(busqueda || categoriaSeleccionada !== 'Todos') && (
-              <button 
-                onClick={() => {
-                  setBusqueda('');
-                  setCategoriaSeleccionada('Todos');
-                }}
-                className="empty-btn"
-              >
-                Ver todo el menú
-              </button>
-            )}
-          </div>
+      <main className="mx-auto max-w-7xl px-4 pt-5 sm:px-6">
+        {loading ? (
+          <SkeletonGrid count={10} className="sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" />
+        ) : productosFiltrados.length === 0 ? (
+          <EmptyState
+            icon={Search}
+            title={busqueda ? 'No encontramos resultados' : 'No hay productos'}
+            description={
+              busqueda
+                ? 'Probá con otra búsqueda o explorá otras categorías.'
+                : 'No hay productos disponibles en esta categoría por ahora.'
+            }
+            action={
+              (busqueda || categoria !== 'Todos') && (
+                <button onClick={limpiarFiltros} className="text-sm font-semibold text-coffee-700 underline underline-offset-2 hover:text-coffee-900">
+                  Ver todo el menú
+                </button>
+              )
+            }
+          />
         ) : (
-          <div className={`products ${vistaGrid ? 'grid' : 'list'}`}>
-            {productosFiltrados.map((producto, idx) => (
-              <article
-                key={producto.id}
-                className="product"
-                style={{ '--index': idx }}
-              >
-                <div className="product-media">
-                  {producto.imagen_url ? (
-                    <img
-                      src={producto.imagen_url}
-                      alt={producto.nombre}
-                      className="product-img"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="product-icon">
-                      {getCategoryIcon(producto.categoria_nombre)}
-                    </div>
-                  )}
-                  {producto.stock < 10 && (
-                    <div className="product-badge">
-                      <span className="badge-dot"></span>
-                      Quedan {producto.stock}
-                    </div>
-                  )}
-                </div>
+          <>
+            <p className="mb-4 text-sm text-coffee-500">
+              Mostrando <strong className="text-coffee-800">{productosFiltrados.length}</strong>{' '}
+              {productosFiltrados.length === 1 ? 'producto' : 'productos'}
+              {categoria !== 'Todos' && (
+                <>
+                  {' '}
+                  en <span className="font-semibold text-coffee-700">{categoria}</span>
+                </>
+              )}
+            </p>
 
-                <div className="product-body">
-                  <div className="product-header">
-                    <h3 className="product-title">{producto.nombre}</h3>
-                    <span className="product-tag">{producto.categoria_nombre}</span>
-                  </div>
-
-                  {producto.descripcion && (
-                    <p className="product-desc">{producto.descripcion}</p>
-                  )}
-
-                  <div className="product-footer">
-                    <div className="product-price-box">
-                      <span className="price-label">Precio</span>
-                      <span className="product-price">
-                        ${producto.precio.toLocaleString('es-AR')}
-                      </span>
-                    </div>
-                    
-                    {producto.stock > 10 ? (
-                      <span className="product-stock stock-available">
-                        ✓ Disponible
-                      </span>
-                    ) : (
-                      <span className="product-stock stock-low">
-                        ⚠ Stock: {producto.stock}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
+            <div
+              className={
+                vistaGrid
+                  ? 'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5'
+                  : 'flex flex-col gap-3'
+              }
+            >
+              {productosFiltrados.map((producto) =>
+                vistaGrid ? (
+                  <ProductoCardGrid key={producto.id} producto={producto} />
+                ) : (
+                  <ProductoCardList key={producto.id} producto={producto} />
+                )
+              )}
+            </div>
+          </>
         )}
       </main>
-      
-      {/* Espaciado inferior */}
-      <div style={{ height: '3rem' }}></div>
     </div>
   );
-};
+}
 
-export default VistaMozos;
+function ProductoMedia({ producto, className }) {
+  return producto.imagen_url ? (
+    <img src={producto.imagen_url} alt={producto.nombre} loading="lazy" className={cn('h-full w-full object-cover', className)} />
+  ) : (
+    <div className={cn('flex h-full w-full items-center justify-center bg-gradient-to-br from-coffee-100 to-cream-300 text-4xl', className)}>
+      {iconoDe(producto.categoria_nombre)}
+    </div>
+  );
+}
+
+function ProductoCardGrid({ producto }) {
+  return (
+    <article className="flex flex-col overflow-hidden rounded-2xl border border-cream-300 bg-white shadow-card">
+      <div className="relative h-32 shrink-0 sm:h-36">
+        <ProductoMedia producto={producto} />
+        {producto.stock < 10 && (
+          <span className="absolute right-2 top-2">
+            <Badge variant="warning" size="sm">
+              Quedan {producto.stock}
+            </Badge>
+          </span>
+        )}
+      </div>
+      <div className="flex flex-1 flex-col gap-1.5 p-3.5">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="text-sm font-bold leading-snug text-coffee-900">{producto.nombre}</h3>
+        </div>
+        <Badge variant="neutral" size="sm" className="self-start normal-case tracking-normal">
+          {producto.categoria_nombre}
+        </Badge>
+        {producto.descripcion && <p className="line-clamp-2 text-xs text-coffee-500">{producto.descripcion}</p>}
+        <div className="mt-auto flex items-end justify-between pt-2">
+          <span className="text-lg font-bold text-coffee-800">${producto.precio.toLocaleString('es-AR')}</span>
+          {producto.stock > 10 ? (
+            <span className="text-xs font-semibold text-success-600">Disponible</span>
+          ) : (
+            <span className="text-xs font-semibold text-warning-600">Stock: {producto.stock}</span>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ProductoCardList({ producto }) {
+  return (
+    <article className="flex gap-3 overflow-hidden rounded-2xl border border-cream-300 bg-white p-2.5 shadow-card sm:gap-4">
+      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl sm:h-24 sm:w-24">
+        <ProductoMedia producto={producto} />
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <h3 className="text-sm font-bold text-coffee-900 sm:text-base">{producto.nombre}</h3>
+          <Badge variant="neutral" size="sm" className="normal-case tracking-normal">
+            {producto.categoria_nombre}
+          </Badge>
+        </div>
+        {producto.descripcion && <p className="line-clamp-1 text-xs text-coffee-500 sm:text-sm">{producto.descripcion}</p>}
+        <div className="mt-0.5 flex items-center gap-3">
+          <span className="text-base font-bold text-coffee-800 sm:text-lg">${producto.precio.toLocaleString('es-AR')}</span>
+          {producto.stock > 10 ? (
+            <span className="text-xs font-semibold text-success-600">Disponible</span>
+          ) : (
+            <span className="text-xs font-semibold text-warning-600">Quedan {producto.stock}</span>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}

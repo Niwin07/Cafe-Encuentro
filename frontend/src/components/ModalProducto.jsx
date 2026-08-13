@@ -1,78 +1,62 @@
-import { useState, useEffect } from 'react';
-import './ModalProducto.css';
+import { useState } from 'react';
+import { Minus, Plus } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
+import Modal from './ui/Modal';
+import Button from './ui/Button';
+import Select from './ui/Select';
+import Textarea from './ui/Textarea';
+import Badge from './ui/Badge';
 
-const ModalProducto = ({ producto, carrito, onClose, onConfirm }) => {
+/**
+ * Configura un producto (cantidad, acompañamiento obligatorio si aplica,
+ * notas) antes de agregarlo al carrito. El cálculo de stock disponible
+ * descuenta lo que ya está en el carrito, incluyendo el caso en que un
+ * acompañamiento esté vinculado a otro producto del catálogo (ej. "Coca
+ * como acompañamiento" descuenta del mismo stock que "Coca como producto").
+ *
+ * El padre debe montar este componente con `key={producto.id}` para que el
+ * estado del formulario se reinicie al cambiar de producto.
+ */
+export default function ModalProducto({ producto, carrito, onClose, onConfirm }) {
+  const toast = useToast();
   const [cantidad, setCantidad] = useState(1);
   const [nota, setNota] = useState('');
   const [acompanamientoId, setAcompanamientoId] = useState('');
 
-  useEffect(() => {
-    setCantidad(1);
-    setNota('');
-    setAcompanamientoId('');
-  }, [producto]);
-
   if (!producto) return null;
 
-  // --- 1. LÓGICA DE STOCK PRODUCTO PRINCIPAL ---
-  
-  // Cuántos de ESTE producto principal ya tengo en el carrito
-  const enCarritoPrincipal = carrito.reduce((acc, item) => {
-    return item.id === producto.id ? acc + item.cantidad : acc;
-  }, 0);
-
-  // Cuántas veces este producto se usa como ACOMPAÑAMIENTO VINCULADO en el carrito
-  const enCarritoComoAcomp = carrito.reduce((acc, item) => {
-    return item.acompanamiento_vinculado_id === producto.id ? acc + item.cantidad : acc;
-  }, 0);
-
+  const enCarritoPrincipal = carrito.reduce((acc, item) => (item.id === producto.id ? acc + item.cantidad : acc), 0);
+  const enCarritoComoAcomp = carrito.reduce(
+    (acc, item) => (item.acompanamiento_vinculado_id === producto.id ? acc + item.cantidad : acc),
+    0
+  );
   const stockRealProducto = producto.stock - enCarritoPrincipal - enCarritoComoAcomp;
 
-
-  // --- 2. LÓGICA DE STOCK ACOMPAÑAMIENTOS (HELPER) ---
   const opcionesDisponibles = producto.acompanamientos || [];
 
-  // Función reutilizable para calcular el stock real de cualquier opción
   const calcularStockAcomp = (op) => {
-      const stockBase = op.stock; // Viene del backend (ya considera si es vinculado o propio)
-      
-      // Descuento por uso directo de este acompañamiento en carrito
-      const usoDirecto = carrito.reduce((acc, item) => {
-          // Usamos == para asegurar compatibilidad string/number
-          return item.acompanamiento_id == op.id ? acc + item.cantidad : acc;
-      }, 0);
-
-      // Descuento por uso de su producto vinculado (si este acomp está vinculado a una Coca, y ya vendí Cocas solas)
-      let usoVinculado = 0;
-      if (op.producto_vinculado_id) {
-          usoVinculado = carrito.reduce((acc, item) => {
-              return item.id === op.producto_vinculado_id ? acc + item.cantidad : acc;
-          }, 0);
-      }
-
-      return stockBase - usoDirecto - usoVinculado;
+    const usoDirecto = carrito.reduce((acc, item) => (item.acompanamiento_id == op.id ? acc + item.cantidad : acc), 0);
+    let usoVinculado = 0;
+    if (op.producto_vinculado_id) {
+      usoVinculado = carrito.reduce((acc, item) => (item.id === op.producto_vinculado_id ? acc + item.cantidad : acc), 0);
+    }
+    return op.stock - usoDirecto - usoVinculado;
   };
 
-  // --- 3. VALIDACIONES SELECCIÓN ACTUAL ---
-  
-  const acompSeleccionado = opcionesDisponibles.find(op => op.id.toString() === acompanamientoId.toString());
-  
-  // Si hay uno seleccionado, calculamos su stock específico con el helper
+  const acompSeleccionado = opcionesDisponibles.find((op) => op.id.toString() === acompanamientoId.toString());
   const stockRealAcomp = acompSeleccionado ? calcularStockAcomp(acompSeleccionado) : 0;
-
-  const stockInsuficienteAcomp = acompSeleccionado && stockRealAcomp < cantidad;
+  const stockInsuficienteAcomp = !!acompSeleccionado && stockRealAcomp < cantidad;
   const stockInsuficienteProd = stockRealProducto < cantidad;
-
-  // --- HANDLERS ---
+  const faltaAcompanamiento = opcionesDisponibles.length > 0 && !acompanamientoId;
 
   const handleConfirm = () => {
     if (stockInsuficienteProd) {
-      alert(`⚠️ Stock insuficiente del producto. Quedan ${stockRealProducto} reales.`);
+      toast.error(`Stock insuficiente del producto. Quedan ${stockRealProducto} reales.`);
       return;
     }
     if (stockInsuficienteAcomp) {
-        alert(`⚠️ Stock insuficiente de "${acompSeleccionado.nombre}". Quedan ${stockRealAcomp} reales.`);
-        return;
+      toast.error(`Stock insuficiente de "${acompSeleccionado.nombre}". Quedan ${stockRealAcomp} reales.`);
+      return;
     }
 
     onConfirm({
@@ -81,162 +65,117 @@ const ModalProducto = ({ producto, carrito, onClose, onConfirm }) => {
       instrucciones_especiales: nota,
       acompanamiento_id: acompanamientoId || null,
       acompanamiento_nombre: acompSeleccionado?.nombre,
-      // Pasamos los acompanamientos completos para que el padre pueda volver a calcular vínculos si es necesario
-      acompanamientos: producto.acompanamientos 
+      acompanamientos: producto.acompanamientos,
     });
-    
     onClose();
   };
 
-  const incrementar = () => {
-    if (cantidad < stockRealProducto) setCantidad(cantidad + 1);
-  };
-
-  const decrementar = () => {
-    if (cantidad > 1) setCantidad(cantidad - 1);
-  };
-
   return (
-    <>
-      <div className="modal-overlay" onClick={onClose} />
-      <div className="modal-container animate-fade-in">
-        <div className="modal-content">
-          
-          <div className="modal-header">
-            <div>
-              <h3 className="modal-titulo">{producto.nombre}</h3>
-              {producto.descripcion && <p className="modal-descripcion">{producto.descripcion}</p>}
-            </div>
-            <button onClick={onClose} className="modal-btn-cerrar">✕</button>
+    <Modal
+      open
+      onClose={onClose}
+      title={producto.nombre}
+      description={producto.descripcion}
+      size="md"
+      footer={
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <p className="text-xs text-coffee-500">Subtotal</p>
+            <p className="text-lg font-bold text-coffee-900">${(producto.precio * cantidad).toFixed(2)}</p>
           </div>
+          <Button variant="secondary" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleConfirm}
+            disabled={stockInsuficienteProd || stockInsuficienteAcomp || faltaAcompanamiento}
+            icon={Plus}
+          >
+            Agregar
+          </Button>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-5">
+        {producto.imagen_url && (
+          <img src={producto.imagen_url} alt={producto.nombre} className="h-40 w-full rounded-xl object-cover" />
+        )}
 
-          <div className="modal-body">
-            {producto.imagen_url && (
-              <img
-                src={producto.imagen_url}
-                alt={producto.nombre}
-                className="modal-imagen"
-              />
-            )}
-            <div className="modal-precio-section">
-              <span className="modal-precio-label">Precio unitario</span>
-              <span className="modal-precio">${producto.precio}</span>
-            </div>
+        <div className="flex items-center justify-between rounded-xl bg-cream-100 px-4 py-3">
+          <span className="text-sm font-medium text-coffee-600">Precio unitario</span>
+          <span className="text-xl font-bold text-coffee-900">${producto.precio}</span>
+        </div>
 
-            <div className="modal-section">
-              <label className="modal-label">Cantidad</label>
-              <div className="cantidad-selector">
-                <button onClick={decrementar} disabled={cantidad <= 1} className="btn-cantidad">−</button>
-                <input type="number" readOnly value={cantidad} className="cantidad-input"/>
-                <button onClick={incrementar} disabled={cantidad >= stockRealProducto} className="btn-cantidad">+</button>
-              </div>
-              
-              <small className={`modal-stock ${stockRealProducto < 5 ? 'stock-bajo' : ''}`}>
-                {stockRealProducto <= 0 ? '🚫 Sin Stock' : `✓ Disponibles: ${stockRealProducto}`} 
-                { (enCarritoPrincipal + enCarritoComoAcomp) > 0 && 
-                  <span style={{marginLeft: '5px', opacity: 0.7}}>
-                    (Tienes {enCarritoPrincipal + enCarritoComoAcomp} en carrito)
-                  </span> 
-                }
-              </small>
-            </div>
-
-            {/* SECCIÓN ACOMPAÑAMIENTOS MEJORADA */}
-            {opcionesDisponibles.length > 0 && (
-              <div className="modal-section">
-                <label className="modal-label">
-                  🥄 Acompañamiento 
-                  <span style={{ color: 'var(--error)', marginLeft: '0.25rem' }}>*</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
-                    (Obligatorio)
-                  </span>
-                </label>
-                <select 
-                  value={acompanamientoId} 
-                  onChange={e => setAcompanamientoId(e.target.value)}
-                  className="modal-select"
-                  style={{ 
-                    borderColor: (!acompanamientoId || stockInsuficienteAcomp) ? 'var(--error)' : 'var(--success)'
-                  }}
-                >
-                  <option value="">-- Selecciona un acompañamiento --</option>
-                  
-                  {opcionesDisponibles.map(op => {
-                      const stockDisp = calcularStockAcomp(op);
-                      const disabled = stockDisp < cantidad;
-                      
-                      return (
-                        <option 
-                            key={op.id} 
-                            value={op.id} 
-                            disabled={disabled}
-                            style={{ color: disabled ? '#ccc' : '#000' }}
-                        >
-                            {op.nombre} {op.categoria ? `(${op.categoria})` : ''} — (Stock: {stockDisp})
-                        </option>
-                      )
-                  })}
-                </select>
-                
-                {/* Mensaje cuando no se ha seleccionado */}
-                {!acompanamientoId && (
-                  <small style={{ color: 'var(--error)', display: 'block', marginTop: '0.5rem', fontWeight: '600' }}>
-                      ⚠️ Debes seleccionar un acompañamiento para continuar
-                  </small>
-                )}
-                
-                {/* Mensajes de ayuda o error cuando sí está seleccionado */}
-                {acompanamientoId && !stockInsuficienteAcomp && (
-                  <small style={{ color: 'var(--success)', display: 'block', marginTop: '0.25rem' }}>
-                      ✓ Stock suficiente ({stockRealAcomp} disponibles)
-                  </small>
-                )}
-                
-                {stockInsuficienteAcomp && (
-                    <small style={{ color: 'var(--error)', marginTop: '0.25rem', display: 'block', fontWeight: '600' }}>
-                        ⚠️ No hay suficiente stock (Solo quedan {stockRealAcomp})
-                    </small>
-                )}
-              </div>
-            )}
-
-            <div className="modal-section">
-              <label className="modal-label">📝 Notas especiales</label>
-              <textarea 
-                rows="3" 
-                placeholder='Ej: "Sin azúcar", "Tibio", etc.'
-                value={nota}
-                onChange={e => setNota(e.target.value)}
-                className="modal-textarea"
-                maxLength={200}
-              />
-            </div>
-          </div>
-
-          <div className="modal-footer">
-            <div className="modal-subtotal">
-              <span>Subtotal:</span>
-              <span className="modal-subtotal-precio">${(producto.precio * cantidad).toFixed(2)}</span>
-            </div>
-            <div className="modal-actions">
-              <button onClick={onClose} className="btn btn-secondary modal-btn-cancelar">Cancelar</button>
-              <button 
-                onClick={handleConfirm} 
-                className="btn btn-primary modal-btn-agregar"
-                disabled={
-                  stockInsuficienteProd || 
-                  stockInsuficienteAcomp || 
-                  (opcionesDisponibles.length > 0 && !acompanamientoId) // Nueva condición
-                }
-              >
-                ➕ Agregar al Pedido
+        <div>
+          <p className="mb-2 text-sm font-semibold text-coffee-700">Cantidad</p>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setCantidad((c) => Math.max(1, c - 1))}
+              disabled={cantidad <= 1}
+              aria-label="Restar cantidad"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-cream-300 text-coffee-700 transition-colors hover:bg-cream-100 disabled:opacity-40"
+            >
+              <Minus className="h-4 w-4" />
             </button>
-            </div>
+            <span className="w-10 text-center text-lg font-bold text-coffee-900">{cantidad}</span>
+            <button
+              type="button"
+              onClick={() => setCantidad((c) => Math.min(stockRealProducto, c + 1))}
+              disabled={cantidad >= stockRealProducto}
+              aria-label="Sumar cantidad"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-cream-300 text-coffee-700 transition-colors hover:bg-cream-100 disabled:opacity-40"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+
+            <span className={`ml-2 text-sm font-medium ${stockRealProducto < 5 ? 'text-warning-600' : 'text-coffee-500'}`}>
+              {stockRealProducto <= 0 ? 'Sin stock' : `Disponibles: ${stockRealProducto}`}
+              {enCarritoPrincipal + enCarritoComoAcomp > 0 && (
+                <span className="ml-1 opacity-70">({enCarritoPrincipal + enCarritoComoAcomp} en carrito)</span>
+              )}
+            </span>
           </div>
         </div>
-      </div>
-    </>
-  );
-};
 
-export default ModalProducto;
+        {opcionesDisponibles.length > 0 && (
+          <div>
+            <Select
+              label="Acompañamiento (obligatorio)"
+              required
+              value={acompanamientoId}
+              onChange={(e) => setAcompanamientoId(e.target.value)}
+              error={faltaAcompanamiento ? 'Debés seleccionar un acompañamiento para continuar' : undefined}
+            >
+              <option value="">-- Seleccioná un acompañamiento --</option>
+              {opcionesDisponibles.map((op) => {
+                const stockDisp = calcularStockAcomp(op);
+                return (
+                  <option key={op.id} value={op.id} disabled={stockDisp < cantidad}>
+                    {op.nombre} {op.categoria ? `(${op.categoria})` : ''} — Stock: {stockDisp}
+                  </option>
+                );
+              })}
+            </Select>
+            {acompSeleccionado && !stockInsuficienteAcomp && (
+              <p className="mt-1.5 text-xs font-medium text-success-600">Stock suficiente ({stockRealAcomp} disponibles)</p>
+            )}
+            {stockInsuficienteAcomp && (
+              <Badge variant="danger" size="sm" className="mt-1.5 normal-case tracking-normal">
+                Solo quedan {stockRealAcomp}
+              </Badge>
+            )}
+          </div>
+        )}
+
+        <Textarea
+          label="Notas especiales"
+          placeholder='Ej: "Sin azúcar", "Tibio", etc.'
+          value={nota}
+          onChange={(e) => setNota(e.target.value)}
+          maxLength={200}
+        />
+      </div>
+    </Modal>
+  );
+}

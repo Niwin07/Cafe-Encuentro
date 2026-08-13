@@ -1,70 +1,135 @@
-import { useState, useEffect } from 'react';
-import api from '../../services/api';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
-import './AdminPanel.css';
+import {
+  ArrowLeft,
+  ImageOff,
+  ImagePlus,
+  Link2,
+  Package,
+  Pencil,
+  Plus,
+  Save,
+  Search,
+  Settings,
+  Sparkles,
+  Tag,
+  Target,
+  Trash2,
+  Users,
+  Utensils,
+} from 'lucide-react';
+import api from '../../services/api';
+import { useToast } from '../../context/ToastContext';
+import PageHeader from '../../components/ui/PageHeader';
+import Tabs from '../../components/ui/Tabs';
+import Button from '../../components/ui/Button';
+import IconButton from '../../components/ui/IconButton';
+import Input from '../../components/ui/Input';
+import Select from '../../components/ui/Select';
+import Textarea from '../../components/ui/Textarea';
+import Checkbox from '../../components/ui/Checkbox';
+import Table from '../../components/ui/Table';
+import Modal from '../../components/ui/Modal';
+import Badge from '../../components/ui/Badge';
+import Spinner from '../../components/ui/Spinner';
+import EmptyState from '../../components/ui/EmptyState';
 
-const AdminPanel = () => {
+const TABS = [
+  { value: 'productos', label: 'Productos', icon: Package },
+  { value: 'categorias', label: 'Categorías', icon: Tag },
+  { value: 'acompanamientos', label: 'Acompañamientos', icon: Utensils },
+  { value: 'destinos', label: 'Destinos', icon: Target },
+  { value: 'cajeras', label: 'Cajeras', icon: Users },
+];
+
+const CATEGORIAS_ACOMP = ['Bebida', 'Comida', 'Extra', 'Endulzante', 'Otro'];
+
+const NOMBRE_SINGULAR = {
+  productos: 'producto',
+  categorias: 'categoría',
+  acompanamientos: 'acompañamiento',
+  destinos: 'destino',
+  cajeras: 'cajera',
+};
+
+const formVacio = {
+  nombre: '',
+  descripcion: '',
+  precio: '',
+  stock: '',
+  categoria_id: '',
+  destino_id: '',
+  categoria: 'Bebida',
+  producto_vinculado_id: '',
+  usuario: '',
+  password: '',
+  acompanamientos_ids: [],
+};
+
+export default function AdminPanel() {
+  const [, setLocation] = useLocation();
+  const toast = useToast();
+
   const [activeTab, setActiveTab] = useState('productos');
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [, setLocation] = useLocation();
 
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  
-  // Estados para los selectores
+  const [form, setForm] = useState(formVacio);
+  const [guardando, setGuardando] = useState(false);
+
   const [auxCats, setAuxCats] = useState([]);
   const [auxDest, setAuxDest] = useState([]);
   const [auxAcomp, setAuxAcomp] = useState([]);
-  
-  // NUEVO: Estado para la lista de productos (para vincular stock)
-  const [listaProductos, setListaProductos] = useState([]); 
+  const [listaProductos, setListaProductos] = useState([]);
+  const [filtroAcomp, setFiltroAcomp] = useState('');
 
   const [nuevoAcompNombre, setNuevoAcompNombre] = useState('');
   const [nuevoAcompCategoria, setNuevoAcompCategoria] = useState('Bebida');
   const [creandoAcomp, setCreandoAcomp] = useState(false);
 
-  // Generación de imagen con IA
   const [generandoImagen, setGenerandoImagen] = useState(false);
 
-  const [filtroAcomp, setFiltroAcomp] = useState('');
+  useEffect(() => {
+    cargarDatos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo debe recargar cuando cambia la pestaña
+  }, [activeTab]);
 
-  useEffect(() => { cargarDatos(); }, [activeTab]);
+  const setField = (key) => (value) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const cargarDatos = async () => {
     setLoading(true);
     try {
-      let url = activeTab === 'cajeras' ? '/auth/cajeras' : activeTab === 'productos' ? '/productos' : `/${activeTab}`;
-      const res = await api.get(url);
-      
-      if (activeTab === 'productos') {
-        setData(res.data.productos || []);
-      } else if (activeTab === 'cajeras') {
-        setData(res.data.cajeras || []);
-      } else {
-        setData(res.data || []);
-      }
-    } catch (error) {
-      console.error(error);
-      alert('Error cargando datos: ' + error.message);
-    } finally { setLoading(false); }
+      const url = activeTab === 'cajeras' ? '/auth/cajeras' : activeTab === 'productos' ? '/productos' : `/${activeTab}`;
+      const { data: res } = await api.get(url);
+
+      if (activeTab === 'productos') setData(res.productos || []);
+      else if (activeTab === 'cajeras') setData(res.cajeras || []);
+      else setData(res || []);
+    } catch (err) {
+      console.error(err);
+      toast.error('Error cargando los datos.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const cargarAuxiliares = async () => {
     try {
-      // MODIFICADO: Ahora cargamos también /productos para tener la lista de vinculación
       const [resCat, resDest, resAcomp, resProd] = await Promise.all([
         api.get('/categorias'),
         api.get('/destinos'),
         api.get('/acompanamientos'),
-        api.get('/productos') 
+        api.get('/productos'),
       ]);
       setAuxCats(resCat.data);
       setAuxDest(resDest.data);
       setAuxAcomp(resAcomp.data);
-      // Guardamos los productos en el nuevo estado
       setListaProductos(resProd.data.productos || []);
-    } catch (error) { console.error("Error cargando auxiliares:", error); }
+    } catch (err) {
+      console.error('Error cargando auxiliares:', err);
+    }
   };
 
   const handleQuickCreateAcomp = async (e) => {
@@ -72,406 +137,480 @@ const AdminPanel = () => {
     if (!nuevoAcompNombre.trim()) return;
     setCreandoAcomp(true);
     try {
-      const res = await api.post('/acompanamientos', {
+      const { data: res } = await api.post('/acompanamientos', {
         nombre: nuevoAcompNombre,
         categoria: nuevoAcompCategoria,
-        stock: 50 
+        stock: 50,
       });
-      const nuevoItem = { id: res.data.id, nombre: nuevoAcompNombre, categoria: nuevoAcompCategoria, stock: 50 };
-      setAuxAcomp([...auxAcomp, nuevoItem]);
-      if (editingItem) {
-        const actuales = editingItem.acompanamientos || [];
-        setEditingItem({ ...editingItem, acompanamientos: [...actuales, nuevoItem] });
-      }
+      const nuevoItem = { id: res.id, nombre: nuevoAcompNombre, categoria: nuevoAcompCategoria, stock: 50 };
+      setAuxAcomp((prev) => [...prev, nuevoItem]);
+      setForm((prev) => ({ ...prev, acompanamientos_ids: [...prev.acompanamientos_ids, nuevoItem.id] }));
       setNuevoAcompNombre('');
-      alert('✨ Opción creada!');
-    } catch (error) { alert('Error: ' + error.message); } finally { setCreandoAcomp(false); }
+      toast.success('Opción creada.');
+    } catch (err) {
+      toast.error(err.response?.data?.mensaje || 'No se pudo crear la opción.');
+    } finally {
+      setCreandoAcomp(false);
+    }
+  };
+
+  const construirPayload = () => {
+    if (activeTab === 'productos') {
+      return {
+        nombre: form.nombre,
+        descripcion: form.descripcion,
+        precio: form.precio,
+        stock: form.stock,
+        categoria_id: form.categoria_id,
+        destino_id: form.destino_id,
+        acompanamientos_ids: form.acompanamientos_ids,
+      };
+    }
+    if (activeTab === 'acompanamientos') {
+      const payload = {
+        nombre: form.nombre,
+        categoria: form.categoria,
+        producto_vinculado_id: form.producto_vinculado_id || null,
+      };
+      // Igual que en un <input disabled>: si hay producto vinculado no se manda stock manual
+      if (!form.producto_vinculado_id) payload.stock = form.stock;
+      return payload;
+    }
+    if (activeTab === 'cajeras') {
+      return { nombre: form.nombre, usuario: form.usuario, password: form.password };
+    }
+    // categorias / destinos
+    return { nombre: form.nombre };
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
-    const form = e.target;
-    const formData = new FormData(form);
-    const payload = {};
-    const acompIds = [];
-
-    for (const [key, value] of formData.entries()) {
-        if (key === 'acompanamientos') {
-            acompIds.push(parseInt(value));
-        } else {
-            payload[key] = value;
-        }
-    }
-    
-    if (activeTab === 'productos') payload.acompanamientos_ids = acompIds;
-
+    setGuardando(true);
     try {
+      const payload = construirPayload();
       if (activeTab === 'cajeras') {
         await api.post('/auth/registro', payload);
+      } else if (editingItem?.id) {
+        await api.put(`/${activeTab}/${editingItem.id}`, payload);
       } else {
-        if (editingItem && editingItem.id) {
-          await api.put(`/${activeTab}/${editingItem.id}`, payload);
-        } else {
-          await api.post(`/${activeTab}`, payload);
-        }
+        await api.post(`/${activeTab}`, payload);
       }
-      alert('✅ Guardado correctamente');
+      toast.success('Guardado correctamente.');
       setShowModal(false);
       cargarDatos();
-    } catch (error) {
-      alert('Error al guardar: ' + (error.response?.data?.mensaje || error.message));
+    } catch (err) {
+      toast.error(err.response?.data?.mensaje || 'No se pudo guardar.');
+    } finally {
+      setGuardando(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (activeTab === 'cajeras') { alert("⚠️ No se pueden eliminar cajeras desde aquí."); return; }
-    if (!confirm('¿Seguro de eliminar este elemento?')) return;
+    if (activeTab === 'cajeras') {
+      toast.warning('No se pueden eliminar cajeras desde acá.');
+      return;
+    }
+    const ok = await toast.confirm('¿Seguro que querés eliminar este elemento?', { title: 'Eliminar', confirmLabel: 'Eliminar', danger: true });
+    if (!ok) return;
     try {
       await api.delete(`/${activeTab}/${id}`);
       cargarDatos();
-    } catch (error) { alert('Error al eliminar'); }
+    } catch (err) {
+      toast.error(err.response?.data?.mensaje || 'No se pudo eliminar.');
+    }
   };
 
   const openModal = async (item = null) => {
-    if (activeTab === 'cajeras' && item) { alert("⚠️ Edición de usuarios no disponible."); return; }
-    
-    // MODIFICADO: Cargamos auxiliares siempre que no sea cajeras, 
-    // para tener las listas listas (incluyendo productos para vincular)
+    if (activeTab === 'cajeras' && item) {
+      toast.warning('La edición de usuarios no está disponible.');
+      return;
+    }
+
     if (activeTab !== 'cajeras') await cargarAuxiliares();
-    
+
     setEditingItem(item || {});
-    setShowModal(true);
+    setForm({
+      ...formVacio,
+      nombre: item?.nombre || '',
+      descripcion: item?.descripcion || '',
+      precio: item?.precio ?? '',
+      stock: item?.stock ?? '',
+      categoria_id: item?.categoria_id ?? '',
+      destino_id: item?.destino_id ?? '',
+      categoria: item?.categoria || 'Bebida',
+      producto_vinculado_id: item?.producto_vinculado_id || '',
+      acompanamientos_ids: item?.acompanamientos?.map((a) => a.id) || [],
+    });
     setFiltroAcomp('');
+    setShowModal(true);
+  };
+
+  const toggleAcompanamiento = (id) => {
+    setForm((prev) => ({
+      ...prev,
+      acompanamientos_ids: prev.acompanamientos_ids.includes(id)
+        ? prev.acompanamientos_ids.filter((x) => x !== id)
+        : [...prev.acompanamientos_ids, id],
+    }));
   };
 
   const handleGenerarImagen = async () => {
     if (!editingItem?.id) return;
     setGenerandoImagen(true);
     try {
-      const res = await api.post(`/productos/${editingItem.id}/generar-imagen`);
-      setEditingItem({ ...editingItem, imagen_url: res.data.imagen_url });
-    } catch (error) {
-      alert('Error al generar la imagen: ' + (error.response?.data?.mensaje || error.message));
+      const { data: res } = await api.post(`/productos/${editingItem.id}/generar-imagen`);
+      setEditingItem((prev) => ({ ...prev, imagen_url: res.imagen_url }));
+    } catch (err) {
+      toast.error(err.response?.data?.mensaje || 'No se pudo generar la imagen.');
     } finally {
       setGenerandoImagen(false);
     }
   };
 
-  const tabs = [
-    { id: 'productos', label: '📦 Productos' },
-    { id: 'categorias', label: '🏷️ Categorías' },
-    { id: 'acompanamientos', label: '🥄 Acompañamientos' },
-    { id: 'destinos', label: '🎯 Destinos' },
-    { id: 'cajeras', label: '👥 Cajeras' }
-  ];
+  const columnas = columnasPara(activeTab);
 
   return (
-    <div className="admin-container">
-      <div className="admin-header">
-        <div className="admin-header-content">
-          <h2><span>⚙️</span> Panel de Administración</h2>
-          <button onClick={() => setLocation('/pedidos')} className="btn admin-btn-volver">⬅️ Volver a Caja</button>
-        </div>
-      </div>
-
-      <div className="admin-tabs">
-        {tabs.map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}>{tab.label}</button>
-        ))}
-      </div>
-
-      <div className="admin-content">
-        <div className="admin-content-header">
-          <h3>Gestionar {activeTab}</h3>
-          <button onClick={() => openModal()} className="btn btn-success">➕ Nuevo</button>
-        </div>
-
-        {loading ? <div className="admin-loading"><p>Cargando datos...</p></div> : (
-          <div className="admin-table-container animate-fade-in">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Información</th>
-                  {activeTab === 'productos' && <th>Precio / Stock</th>}
-                  {activeTab === 'productos' && <th>Categoría</th>}
-                  
-                  {activeTab === 'acompanamientos' && <th>Categoría</th>}
-                  {activeTab === 'acompanamientos' && <th>Stock</th>}
-                  
-                  {activeTab === 'cajeras' && <th>Usuario</th>}
-                  <th style={{ textAlign: 'right' }}>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.map(item => (
-                  <tr key={item.id}>
-                    <td>
-                      <div className="admin-item-row">
-                        {activeTab === 'productos' && (
-                          item.imagen_url
-                            ? <img src={item.imagen_url} alt="" className="admin-item-thumb" />
-                            : <div className="admin-item-thumb admin-item-thumb-vacio">🖼️</div>
-                        )}
-                        <div>
-                          <div className="admin-item-nombre">
-                            {item.nombre}
-                            {/* Mostrar indicador si está vinculado */}
-                            {item.producto_vinculado_id && (
-                                <span style={{fontSize:'0.7rem', color:'#8b5a3c', marginLeft:'5px'}}>
-                                    (🔗 Vinculado)
-                                </span>
-                            )}
-                          </div>
-                          {item.descripcion && <div className="admin-item-desc">{item.descripcion}</div>}
-                        </div>
-                      </div>
-                    </td>
-                    
-                    {activeTab === 'productos' && (
-                      <>
-                        <td>
-                          <div className="admin-precio-stock">
-                            <span className="admin-precio">${item.precio}</span>
-                            <span className={`admin-stock ${item.stock < 5 ? 'bajo' : 'ok'}`}>Stock: {item.stock}</span>
-                          </div>
-                        </td>
-                        <td>{item.categoria_nombre}</td>
-                      </>
-                    )}
-
-                    {activeTab === 'acompanamientos' && (
-                      <>
-                        <td>{item.categoria}</td>
-                        <td>
-                           <span className={`admin-stock ${item.stock < 10 ? 'bajo' : 'ok'}`}>
-                              {item.stock} u.
-                           </span>
-                        </td>
-                      </>
-                    )}
-
-                    {activeTab === 'cajeras' && <td style={{ color: 'var(--text-muted)' }}>@{item.usuario}</td>}
-
-                    <td>
-                      <div className="admin-actions">
-                        {activeTab !== 'cajeras' && <button onClick={() => openModal(item)} className="btn admin-btn-editar">✏️ Editar</button>}
-                        {activeTab !== 'cajeras' && <button onClick={() => handleDelete(item.id)} className="btn btn-danger admin-btn-eliminar">🗑️</button>}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+    <div className="min-h-screen bg-cream-100 pb-10">
+      <header className="border-b border-cream-300 bg-cream-50 px-4 py-4 sm:px-6">
+        <div className="mx-auto max-w-6xl">
+          <PageHeader
+            icon={Settings}
+            title="Panel de administración"
+            actions={
+              <Button variant="secondary" icon={ArrowLeft} onClick={() => setLocation('/pedidos')}>
+                Volver a caja
+              </Button>
+            }
+          />
+          <div className="mt-4">
+            <Tabs items={TABS} value={activeTab} onChange={setActiveTab} />
           </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-bold capitalize text-coffee-900">Gestionar {activeTab}</h2>
+          <Button icon={Plus} onClick={() => openModal()}>
+            Nuevo
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <Spinner />
+          </div>
+        ) : (
+          <Table
+            columns={columnas}
+            data={data}
+            emptyState={<EmptyState icon={Package} title={`No hay ${activeTab} cargados`} />}
+            renderActions={
+              activeTab === 'cajeras'
+                ? undefined
+                : (item) => (
+                    <>
+                      <IconButton label="Editar" size="sm" variant="ghost" onClick={() => openModal(item)}>
+                        <Pencil className="h-4 w-4" />
+                      </IconButton>
+                      <IconButton label="Eliminar" size="sm" variant="danger" onClick={() => handleDelete(item.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </IconButton>
+                    </>
+                  )
+            }
+          />
+        )}
+      </main>
+
+      <Modal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title={`${editingItem?.id ? 'Editar' : 'Crear'} ${NOMBRE_SINGULAR[activeTab]}`}
+        size="lg"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowModal(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="admin-form" loading={guardando} icon={guardando ? undefined : Save}>
+              Guardar
+            </Button>
+          </div>
+        }
+      >
+        <form id="admin-form" onSubmit={handleSave} className="flex flex-col gap-4">
+          <Input label="Nombre" value={form.nombre} onChange={(e) => setField('nombre')(e.target.value)} required autoFocus />
+
+          {activeTab === 'productos' && (
+            <ProductoCampos
+              form={form}
+              setField={setField}
+              auxCats={auxCats}
+              auxDest={auxDest}
+              auxAcomp={auxAcomp}
+              filtroAcomp={filtroAcomp}
+              setFiltroAcomp={setFiltroAcomp}
+              toggleAcompanamiento={toggleAcompanamiento}
+              editingItem={editingItem}
+              generandoImagen={generandoImagen}
+              onGenerarImagen={handleGenerarImagen}
+              nuevoAcompNombre={nuevoAcompNombre}
+              setNuevoAcompNombre={setNuevoAcompNombre}
+              nuevoAcompCategoria={nuevoAcompCategoria}
+              setNuevoAcompCategoria={setNuevoAcompCategoria}
+              creandoAcomp={creandoAcomp}
+              onQuickCreateAcomp={handleQuickCreateAcomp}
+            />
+          )}
+
+          {activeTab === 'acompanamientos' && (
+            <AcompanamientoCampos form={form} setField={setField} listaProductos={listaProductos} />
+          )}
+
+          {activeTab === 'cajeras' && (
+            <>
+              <Input label="Usuario" value={form.usuario} onChange={(e) => setField('usuario')(e.target.value)} required />
+              <Input
+                label="Contraseña"
+                type="password"
+                value={form.password}
+                onChange={(e) => setField('password')(e.target.value)}
+                required
+                minLength={6}
+                hint="Mínimo 6 caracteres."
+              />
+            </>
+          )}
+        </form>
+      </Modal>
+    </div>
+  );
+}
+
+function ProductoCampos({
+  form,
+  setField,
+  auxCats,
+  auxDest,
+  auxAcomp,
+  filtroAcomp,
+  setFiltroAcomp,
+  toggleAcompanamiento,
+  editingItem,
+  generandoImagen,
+  onGenerarImagen,
+  nuevoAcompNombre,
+  setNuevoAcompNombre,
+  nuevoAcompCategoria,
+  setNuevoAcompCategoria,
+  creandoAcomp,
+  onQuickCreateAcomp,
+}) {
+  const acompFiltrados = auxAcomp.filter((ac) => ac.nombre.toLowerCase().includes(filtroAcomp.toLowerCase()));
+
+  return (
+    <>
+      <Textarea label="Descripción" value={form.descripcion} onChange={(e) => setField('descripcion')(e.target.value)} rows={3} />
+
+      <div>
+        <p className="mb-1.5 text-sm font-semibold text-coffee-700">Imagen del producto (generada con IA)</p>
+        {editingItem?.id ? (
+          <div className="flex flex-col gap-2">
+            {editingItem?.imagen_url ? (
+              <img src={editingItem.imagen_url} alt="Vista previa" className="h-32 w-32 rounded-xl object-cover" />
+            ) : (
+              <div className="flex h-32 w-32 items-center justify-center rounded-xl bg-cream-200 text-coffee-400">
+                <ImageOff className="h-8 w-8" aria-hidden="true" />
+              </div>
+            )}
+            <p className="text-xs text-coffee-400">Se genera automáticamente a partir del nombre y la descripción.</p>
+            <Button type="button" variant="secondary" size="sm" loading={generandoImagen} icon={generandoImagen ? undefined : ImagePlus} onClick={onGenerarImagen} className="self-start">
+              {editingItem?.imagen_url ? 'Regenerar imagen' : 'Generar imagen'}
+            </Button>
+          </div>
+        ) : (
+          <p className="text-xs text-coffee-400">Guardá el producto primero; después podés generarle una imagen desde &quot;Editar&quot;.</p>
         )}
       </div>
 
-      {showModal && (
-        <div className="admin-modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="admin-modal-header">
-              <h3>{editingItem.id ? 'Editar' : 'Crear'} {activeTab}</h3>
-            </div>
-            <div className="admin-modal-body">
-              <form onSubmit={handleSave} className="admin-form">
-                
-                <div className="admin-form-group">
-                  <label className="admin-form-label">Nombre</label>
-                  <input name="nombre" defaultValue={editingItem?.nombre} required />
-                </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Input label="Precio" type="number" step="0.01" value={form.precio} onChange={(e) => setField('precio')(e.target.value)} required />
+        <Input label="Stock" type="number" value={form.stock} onChange={(e) => setField('stock')(e.target.value)} required />
+      </div>
 
-                {/* PRODUCTOS */}
-                {activeTab === 'productos' && (
-                  <>
-                    <div className="admin-form-group">
-                        <label className="admin-form-label">Descripción</label>
-                        <textarea name="descripcion" defaultValue={editingItem?.descripcion} rows="3" />
-                    </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Select label="Categoría" value={form.categoria_id} onChange={(e) => setField('categoria_id')(e.target.value)} required>
+          <option value="">-- Seleccionar --</option>
+          {auxCats.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nombre}
+            </option>
+          ))}
+        </Select>
+        <Select label="Destino" value={form.destino_id} onChange={(e) => setField('destino_id')(e.target.value)} required>
+          <option value="">-- Seleccionar --</option>
+          {auxDest.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.nombre}
+            </option>
+          ))}
+        </Select>
+      </div>
 
-                    <div className="admin-form-group admin-imagen-ia">
-                        <label className="admin-form-label">🖼️ Imagen del producto (generada con IA)</label>
+      <div className="rounded-2xl border border-cream-300 bg-cream-50 p-4">
+        <p className="mb-2 text-sm font-semibold text-coffee-700">Opciones / acompañamientos</p>
+        <Input
+          value={filtroAcomp}
+          onChange={(e) => setFiltroAcomp(e.target.value)}
+          placeholder="Buscar..."
+          icon={Search}
+          wrapperClassName="mb-3"
+        />
+        <div className="grid max-h-48 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2">
+          {acompFiltrados.map((ac) => (
+            <Checkbox
+              key={ac.id}
+              label={ac.nombre}
+              description={`Stock: ${ac.stock}`}
+              checked={form.acompanamientos_ids.includes(ac.id)}
+              onChange={() => toggleAcompanamiento(ac.id)}
+            />
+          ))}
+          {acompFiltrados.length === 0 && <p className="text-xs text-coffee-400">Sin resultados.</p>}
+        </div>
 
-                        {editingItem?.id ? (
-                          <>
-                            {editingItem?.imagen_url && (
-                              <img src={editingItem.imagen_url} alt="Vista previa" className="admin-imagen-preview" />
-                            )}
-                            <small style={{fontSize:'0.7rem', color:'#666', marginTop:'2px', display: 'block'}}>
-                                Se genera automáticamente a partir del nombre y la descripción.
-                            </small>
-                            <button
-                                type="button"
-                                onClick={handleGenerarImagen}
-                                disabled={generandoImagen}
-                                className="btn btn-sm btn-secondary"
-                                style={{marginTop: '0.5rem'}}
-                            >
-                                {generandoImagen ? '✨ Generando...' : (editingItem?.imagen_url ? '🔄 Regenerar imagen' : '✨ Generar imagen')}
-                            </button>
-                          </>
-                        ) : (
-                          <small style={{fontSize:'0.75rem', color:'#666'}}>
-                              Guardá el producto primero; después podés generarle una imagen desde "Editar".
-                          </small>
-                        )}
-                    </div>
-
-                    <div className="admin-form-row">
-                      <div className="admin-form-group">
-                        <label className="admin-form-label">💵 Precio</label>
-                        <input name="precio" type="number" step="0.01" defaultValue={editingItem?.precio} required />
-                      </div>
-                      <div className="admin-form-group">
-                        <label className="admin-form-label">📦 Stock</label>
-                        <input name="stock" type="number" defaultValue={editingItem?.stock} required />
-                      </div>
-                    </div>
-                    <div className="admin-form-row">
-                      <div className="admin-form-group">
-                        <label className="admin-form-label">🏷️ Categoría</label>
-                        <select name="categoria_id" defaultValue={editingItem?.categoria_id} required>
-                          <option value="">-- Seleccionar --</option>
-                          {auxCats.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                        </select>
-                      </div>
-                      <div className="admin-form-group">
-                        <label className="admin-form-label">🎯 Destino</label>
-                        <select name="destino_id" defaultValue={editingItem?.destino_id} required>
-                          <option value="">-- Seleccionar --</option>
-                          {auxDest.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                    
-                    {/* SECCIÓN OPCIONES (Solo creación rápida, la vinculación es para la otra pestaña) */}
-                    <div className="admin-acomp-section">
-                      <label className="admin-form-label">🥄 Opciones / Acompañamientos</label>
-                      <input placeholder="🔍 Buscar..." value={filtroAcomp} onChange={e => setFiltroAcomp(e.target.value)} className="admin-acomp-search" />
-                      <div className="admin-acomp-grid">
-                        {auxAcomp.filter(ac => ac.nombre.toLowerCase().includes(filtroAcomp.toLowerCase())).map(ac => {
-                            const isChecked = editingItem?.acompanamientos?.some(a => a.id === ac.id);
-                            return (
-                              <label key={ac.id} className={`admin-acomp-checkbox ${isChecked ? 'checked' : ''}`}>
-                                <input type="checkbox" name="acompanamientos" value={ac.id} defaultChecked={isChecked} />
-                                {ac.nombre} <span className="admin-acomp-cat">({ac.stock})</span>
-                              </label>
-                            )
-                        })}
-                      </div>
-                      
-                      <div style={{marginTop: '1rem', borderTop: '1px dashed #ccc', paddingTop: '0.5rem'}}>
-                        <small>¿No encuentras la opción? Créala rápido:</small>
-                        <div style={{display: 'flex', gap: '0.5rem', marginTop: '0.5rem'}}>
-                            <input 
-                                placeholder="Nombre (ej: Hielo)" 
-                                value={nuevoAcompNombre}
-                                onChange={e => setNuevoAcompNombre(e.target.value)}
-                                style={{flex: 1}}
-                            />
-                            <select 
-                                value={nuevoAcompCategoria}
-                                onChange={e => setNuevoAcompCategoria(e.target.value)}
-                                style={{width: '120px'}}
-                            >
-                                <option value="Bebida">Bebida</option>
-                                <option value="Extra">Extra</option>
-                                <option value="Comida">Comida</option>
-                            </select>
-                            <button 
-                                type="button" 
-                                onClick={handleQuickCreateAcomp}
-                                disabled={creandoAcomp || !nuevoAcompNombre}
-                                className="btn btn-sm btn-secondary"
-                            >
-                                {creandoAcomp ? '...' : 'Crear'}
-                            </button>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {/* ACOMPAÑAMIENTOS (Aquí está la magia de vinculación) */}
-                {activeTab === 'acompanamientos' && (
-                  <>
-                    <div className="admin-form-row">
-                        <div className="admin-form-group">
-                            <label className="admin-form-label">Categoría</label>
-                            <select name="categoria" defaultValue={editingItem?.categoria} required>
-                            <option value="Bebida">Bebida</option>
-                            <option value="Comida">Comida</option>
-                            <option value="Extra">Extra</option>
-                            <option value="Endulzante">Endulzante</option>
-                            <option value="Otro">Otro</option>
-                            </select>
-                        </div>
-                        
-                        {/* Selector de Producto Vinculado */}
-                        <div className="admin-form-group">
-                            <label className="admin-form-label">🔗 Vincular Stock (Opcional)</label>
-                            <select 
-                                name="producto_vinculado_id" 
-                                defaultValue={editingItem?.producto_vinculado_id || ""}
-                                onChange={(e) => {
-                                    // Deshabilitar input manual si se selecciona un producto
-                                    const inputStock = document.getElementById('input-stock-acomp');
-                                    if (inputStock) {
-                                        inputStock.disabled = !!e.target.value;
-                                        if (e.target.value) inputStock.value = ''; // Limpiar visualmente
-                                    }
-                                }}
-                            >
-                                <option value="">-- Sin vincular (Stock propio) --</option>
-                                {listaProductos.map(p => (
-                                    <option key={p.id} value={p.id}>
-                                        {p.nombre} (Stock: {p.stock})
-                                    </option>
-                                ))}
-                            </select>
-                            <small style={{fontSize:'0.7rem', color:'#666', marginTop:'2px'}}>
-                                Si vinculas, se descontará del stock del producto elegido.
-                            </small>
-                        </div>
-                    </div>
-
-                    <div className="admin-form-group">
-                        <label className="admin-form-label">📦 Stock Manual</label>
-                        <input 
-                            id="input-stock-acomp"
-                            name="stock" 
-                            type="number" 
-                            defaultValue={editingItem?.stock || 0} 
-                            disabled={!!editingItem?.producto_vinculado_id} // Deshabilitar si ya tiene vínculo
-                        />
-                    </div>
-                  </>
-                )}
-
-                {/* CAJERAS */}
-                {activeTab === 'cajeras' && (
-                  <>
-                    <div className="admin-form-group">
-                      <label className="admin-form-label">Usuario</label>
-                      <input name="usuario" required />
-                    </div>
-                    <div className="admin-form-group">
-                      <label className="admin-form-label">Contraseña</label>
-                      <input name="password" type="password" required minLength="6" />
-                    </div>
-                  </>
-                )}
-
-                <div className="admin-modal-footer">
-                  <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">Cancelar</button>
-                  <button type="submit" className="btn btn-primary">💾 Guardar</button>
-                </div>
-              </form>
-            </div>
+        <div className="mt-3 border-t border-dashed border-cream-400 pt-3">
+          <p className="mb-2 text-xs text-coffee-500">¿No encontrás la opción? Creala rápido:</p>
+          <div className="flex gap-2">
+            <Input
+              value={nuevoAcompNombre}
+              onChange={(e) => setNuevoAcompNombre(e.target.value)}
+              placeholder="Nombre (ej: Hielo)"
+              wrapperClassName="flex-1"
+            />
+            <Select value={nuevoAcompCategoria} onChange={(e) => setNuevoAcompCategoria(e.target.value)} wrapperClassName="w-32">
+              {CATEGORIAS_ACOMP.slice(0, 3).map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
+            <Button type="button" variant="secondary" size="sm" loading={creandoAcomp} disabled={!nuevoAcompNombre.trim()} icon={creandoAcomp ? undefined : Sparkles} onClick={onQuickCreateAcomp}>
+              Crear
+            </Button>
           </div>
         </div>
-      )}
-    </div>
+      </div>
+    </>
   );
-};
+}
 
-export default AdminPanel;
+function AcompanamientoCampos({ form, setField, listaProductos }) {
+  const vinculado = !!form.producto_vinculado_id;
+
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        <Select label="Categoría" value={form.categoria} onChange={(e) => setField('categoria')(e.target.value)} required>
+          {CATEGORIAS_ACOMP.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </Select>
+        <Select
+          label="Vincular stock (opcional)"
+          value={form.producto_vinculado_id}
+          onChange={(e) => setField('producto_vinculado_id')(e.target.value)}
+          icon={Link2}
+          hint="Si vinculás, se descuenta del stock del producto elegido."
+        >
+          <option value="">-- Sin vincular (stock propio) --</option>
+          {listaProductos.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.nombre} (Stock: {p.stock})
+            </option>
+          ))}
+        </Select>
+      </div>
+
+      <Input
+        label="Stock manual"
+        type="number"
+        value={vinculado ? '' : form.stock}
+        onChange={(e) => setField('stock')(e.target.value)}
+        disabled={vinculado}
+        hint={vinculado ? 'Deshabilitado: el stock se toma del producto vinculado.' : undefined}
+      />
+    </>
+  );
+}
+
+function columnasPara(activeTab) {
+  const info = {
+    key: 'info',
+    header: 'Información',
+    cardLabel: false,
+    render: (item) => (
+      <div className="flex items-center gap-3">
+        {activeTab === 'productos' &&
+          (item.imagen_url ? (
+            <img src={item.imagen_url} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover" />
+          ) : (
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-cream-200 text-coffee-400">
+              <ImageOff className="h-4 w-4" aria-hidden="true" />
+            </div>
+          ))}
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 font-bold text-coffee-900">
+            {item.nombre}
+            {item.producto_vinculado_id && (
+              <Badge variant="gold" size="sm" icon={Link2}>
+                vinculado
+              </Badge>
+            )}
+          </p>
+          {item.descripcion && <p className="line-clamp-1 text-xs text-coffee-500">{item.descripcion}</p>}
+        </div>
+      </div>
+    ),
+  };
+
+  if (activeTab === 'productos') {
+    return [
+      info,
+      {
+        key: 'precio',
+        header: 'Precio / Stock',
+        render: (item) => (
+          <div className="flex flex-col">
+            <span className="font-bold text-coffee-800">${item.precio}</span>
+            <span className={item.stock < 5 ? 'text-xs font-semibold text-warning-600' : 'text-xs text-coffee-400'}>Stock: {item.stock}</span>
+          </div>
+        ),
+      },
+      { key: 'categoria', header: 'Categoría', render: (item) => item.categoria_nombre },
+    ];
+  }
+
+  if (activeTab === 'acompanamientos') {
+    return [
+      info,
+      { key: 'categoria', header: 'Categoría', render: (item) => item.categoria },
+      {
+        key: 'stock',
+        header: 'Stock',
+        render: (item) => (
+          <span className={item.stock < 10 ? 'font-semibold text-warning-600' : 'text-coffee-700'}>{item.stock} u.</span>
+        ),
+      },
+    ];
+  }
+
+  if (activeTab === 'cajeras') {
+    return [info, { key: 'usuario', header: 'Usuario', render: (item) => <span className="text-coffee-500">@{item.usuario}</span> }];
+  }
+
+  return [info];
+}
