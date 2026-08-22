@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Search, Grid, List, X, Coffee, RefreshCw } from 'lucide-react';
 import api from '../../services/api';
 import './VistaMozos.css';
@@ -36,20 +36,29 @@ const VistaMozos = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Obtener categorías con conteos
-  const categoriasConConteo = ['Todos', ...new Set(productos.map(p => p.categoria_nombre))].map(cat => {
-    const count = cat === 'Todos' 
-      ? productos.length 
-      : productos.filter(p => p.categoria_nombre === cat).length;
-    return { nombre: cat, cantidad: count };
-  });
+  const busquedaLower = useMemo(() => busqueda.toLowerCase(), [busqueda]);
 
-  const productosFiltrados = productos.filter(p => {
-    const matchBusqueda = p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-                          (p.descripcion && p.descripcion.toLowerCase().includes(busqueda.toLowerCase()));
-    const matchCategoria = categoriaSeleccionada === 'Todos' || p.categoria_nombre === categoriaSeleccionada;
-    return matchBusqueda && matchCategoria;
-  });
+  // useMemo: el Set y los conteos solo se recalculan cuando cambia `productos`
+  const categoriasConConteo = useMemo(() => {
+    const cats = ['Todos', ...new Set(productos.map(p => p.categoria_nombre))];
+    return cats.map(cat => ({
+      nombre: cat,
+      cantidad: cat === 'Todos' ? productos.length : productos.filter(p => p.categoria_nombre === cat).length
+    }));
+  }, [productos]);
+
+  // useMemo: solo se recalcula cuando cambia busqueda o categoría, no en re-renders por polling
+  const productosFiltrados = useMemo(() => {
+    return productos.filter(p => {
+      const matchCategoria = categoriaSeleccionada === 'Todos' || p.categoria_nombre === categoriaSeleccionada;
+      if (!matchCategoria) return false;
+      if (busquedaLower === '') return true;
+      return (
+        p.nombre.toLowerCase().includes(busquedaLower) ||
+        (p.descripcion && p.descripcion.toLowerCase().includes(busquedaLower))
+      );
+    });
+  }, [productos, categoriaSeleccionada, busquedaLower]);
 
   // Iconos mejorados por categoría
   const getCategoryIcon = (categoria) => {

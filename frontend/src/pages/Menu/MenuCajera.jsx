@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useMemo, useCallback, useRef } from 'react';
 import api from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
 import ListaPedidosActivos from './ListaPedidosActivos';
@@ -19,7 +19,17 @@ const MenuCajera = () => {
   const [busqueda, setBusqueda] = useState('');
   const [tabActiva, setTabActiva] = useState('catalogo'); // Para móviles
 
+  // Ref para manejar el foco del input de cliente sin autoFocus condicional
+  const clienteInputRef = useRef(null);
+
   useEffect(() => { cargarDatos(); }, []);
+
+  // Foco programático solo cuando el usuario cambia activamente a la tab carrito
+  useEffect(() => {
+    if (tabActiva === 'carrito' && clienteInputRef.current) {
+      clienteInputRef.current.focus();
+    }
+  }, [tabActiva]);
 
   const cargarDatos = async () => {
     try {
@@ -32,17 +42,14 @@ const MenuCajera = () => {
     }
   };
 
-  const abrirModalProducto = (producto) => {
+  const abrirModalProducto = useCallback((producto) => {
     if (producto.stock <= 0) return alert('⚠️ No hay stock');
     setProductoSeleccionado(producto);
-  };
+  }, []);
 
-  const agregarAlCarrito = (itemConfigurado) => {
-    // Buscamos si el acompañamiento seleccionado tiene un producto vinculado
+  const agregarAlCarrito = useCallback((itemConfigurado) => {
     let prodVinculadoId = null;
     if (itemConfigurado.acompanamiento_id) {
-        // Buscamos en el array de acompañamientos del producto original
-        // (Nota: itemConfigurado es una copia, pero viene de productoSeleccionado)
         const acompOriginal = itemConfigurado.acompanamientos?.find(
             a => a.id.toString() === itemConfigurado.acompanamiento_id.toString()
         );
@@ -59,79 +66,81 @@ const MenuCajera = () => {
       cantidad: itemConfigurado.cantidad,
       acompanamiento_id: itemConfigurado.acompanamiento_id,
       acompanamiento_nombre: itemConfigurado.acompanamiento_nombre,
-      // GUARDAMOS ESTO PARA EL CÁLCULO DE STOCK LOCAL
-      acompanamiento_vinculado_id: prodVinculadoId, 
+      acompanamiento_vinculado_id: prodVinculadoId,
       notas: itemConfigurado.instrucciones_especiales,
       destino_id: itemConfigurado.destino.id
     };
-    
-    setCarrito([...carrito, itemCart]);
+
+    // Functional update para evitar stale closure del estado carrito
+    setCarrito(prev => [...prev, itemCart]);
     if (window.innerWidth < 1024) setTabActiva('carrito');
-  };
+  }, []);
 
-  const eliminarDelCarrito = (tempId) => {
-    setCarrito(carrito.filter(item => item.tempId !== tempId));
-  };
+  const eliminarDelCarrito = useCallback((tempId) => {
+    setCarrito(prev => prev.filter(item => item.tempId !== tempId));
+  }, []);
 
-  const confirmarPedido = async () => {
-  if (!cliente.trim()) return alert('⚠️ Falta nombre del cliente');
-  if (carrito.length === 0) return alert('⚠️ Carrito vacío');
-  
-  // Validar que todos los items tengan acompañamiento si hay opciones disponibles
-  const itemsSinAcompRequerido = [];
-  
-  for (const item of carrito) {
-    // Buscar el producto original para ver si tiene acompañamientos disponibles
-    const prodOriginal = productos.find(p => p.id === item.id);
-    
-    // Si el producto tiene acompañamientos disponibles y no se seleccionó ninguno
-    if (prodOriginal?.acompanamientos?.length > 0 && !item.acompanamiento_id) {
-      itemsSinAcompRequerido.push(item.nombre);
+  const confirmarPedido = useCallback(async () => {
+    if (!cliente.trim()) return alert('⚠️ Falta nombre del cliente');
+    if (carrito.length === 0) return alert('⚠️ Carrito vacío');
+
+    const itemsSinAcompRequerido = [];
+    for (const item of carrito) {
+      const prodOriginal = productos.find(p => p.id === item.id);
+      if (prodOriginal?.acompanamientos?.length > 0 && !item.acompanamiento_id) {
+        itemsSinAcompRequerido.push(item.nombre);
+      }
     }
-  }
-  
-  if (itemsSinAcompRequerido.length > 0) {
-    const productosLista = itemsSinAcompRequerido.join(', ');
-    return alert(`⚠️ Los siguientes productos requieren seleccionar un acompañamiento:\n\n${productosLista}`);
-  }
-  
-  setProcesando(true);
-  try {
-    const payload = {
-      cliente: cliente,
-      items: carrito.map(item => ({
-        producto_id: item.id,
-        cantidad: item.cantidad,
-        acompanamiento_id: item.acompanamiento_id,
-        instrucciones_especiales: item.notas
-      }))
-    };
-    await api.post('/pedidos', payload);
-    alert('✅ Pedido confirmado');
-    setCarrito([]);
-    setCliente('');
-    cargarDatos();
-    
-    // Cambiar a pestaña de pedidos en móvil
-    if (window.innerWidth < 1024) {
-      setTabActiva('pedidos');
-    }
-  } catch (error) { 
-    alert(error.message); 
-  } finally { 
-    setProcesando(false); 
-  }
-  };
 
-  const total = carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
-  
-  const productosFiltrados = productos.filter(p => {
-    const matchCategoria = categoriaSeleccionada === 'Todas' || p.categoria.nombre === categoriaSeleccionada;
-    const matchBusqueda = busqueda === '' || 
-      p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-      (p.descripcion && p.descripcion.toLowerCase().includes(busqueda.toLowerCase()));
-    return matchCategoria && matchBusqueda;
-  });
+    if (itemsSinAcompRequerido.length > 0) {
+      const productosLista = itemsSinAcompRequerido.join(', ');
+      return alert(`⚠️ Los siguientes productos requieren seleccionar un acompañamiento:\n\n${productosLista}`);
+    }
+
+    setProcesando(true);
+    try {
+      const payload = {
+        cliente,
+        items: carrito.map(item => ({
+          producto_id: item.id,
+          cantidad: item.cantidad,
+          acompanamiento_id: item.acompanamiento_id,
+          instrucciones_especiales: item.notas
+        }))
+      };
+      await api.post('/pedidos', payload);
+      alert('✅ Pedido confirmado');
+      setCarrito([]);
+      setCliente('');
+      cargarDatos();
+      if (window.innerWidth < 1024) setTabActiva('pedidos');
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setProcesando(false);
+    }
+  }, [cliente, carrito, productos]);
+
+  // useMemo: solo se recalculan cuando cambian sus dependencias reales,
+  // no en cada keystroke de otros inputs (como "cliente").
+  const total = useMemo(
+    () => carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0),
+    [carrito]
+  );
+
+  const busquedaLower = useMemo(() => busqueda.toLowerCase(), [busqueda]);
+
+  const productosFiltrados = useMemo(() => {
+    return productos.filter(p => {
+      const matchCategoria = categoriaSeleccionada === 'Todas' || p.categoria.nombre === categoriaSeleccionada;
+      if (!matchCategoria) return false;
+      if (busquedaLower === '') return true;
+      return (
+        p.nombre.toLowerCase().includes(busquedaLower) ||
+        (p.descripcion && p.descripcion.toLowerCase().includes(busquedaLower))
+      );
+    });
+  }, [productos, categoriaSeleccionada, busquedaLower]);
 
   return (
     <div className="pos-container">
@@ -284,12 +293,12 @@ const MenuCajera = () => {
           
           <div className="pos-carrito-header">
             <h3>🛒 Pedido Actual</h3>
-            <input 
-              type="text" 
+            <input
+              ref={clienteInputRef}
+              type="text"
               placeholder="Nombre del cliente o mesa..."
-              value={cliente} 
+              value={cliente}
               onChange={e => setCliente(e.target.value)}
-              autoFocus={tabActiva === 'carrito'}
             />
           </div>
 

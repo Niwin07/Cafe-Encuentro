@@ -158,11 +158,14 @@ const Login = () => {
                 }}>
                   👤
                 </div>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   required
                   value={formData.usuario}
-                  onChange={(e) => setFormData({...formData, usuario: e.target.value})}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData(prev => ({ ...prev, usuario: value }));
+                  }}
                   placeholder="Ingresa tu usuario"
                   style={{ paddingLeft: '3rem' }}
                   autoFocus
@@ -189,10 +192,13 @@ const Login = () => {
                   type={mostrarPassword ? "text" : "password"}
                   required
                   value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData(prev => ({ ...prev, password: value }));
+                  }}
                   placeholder="••••••••"
                   style={{ paddingLeft: '3rem', paddingRight: '3rem' }}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSubmit(e)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSubmit(e)}
                 />
                 <button
                   type="button"

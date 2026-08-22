@@ -7,12 +7,7 @@ const ListaPedidosActivos = () => {
   const [expandedId, setExpandedId] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    cargarPedidos();
-    const intervalo = setInterval(cargarPedidos, 5000);
-    return () => clearInterval(intervalo);
-  }, []);
-
+  // Definida ANTES del useEffect que la referencia (evita temporal dead zone con const)
   const cargarPedidos = async () => {
     try {
       const resCocina = await api.get('/pedidos/cocina/activos');
@@ -21,9 +16,7 @@ const ListaPedidosActivos = () => {
       const itemsCocina = resCocina.data.items || {};
       const itemsCafe = resCafe.data.items || {};
 
-      // Combinar pedidos de cocina y cafetería
       const combinados = { ...itemsCocina };
-
       Object.keys(itemsCafe).forEach((pedidoId) => {
         if (combinados[pedidoId]) {
           combinados[pedidoId] = [...combinados[pedidoId], ...itemsCafe[pedidoId]];
@@ -34,11 +27,17 @@ const ListaPedidosActivos = () => {
 
       setPedidos(combinados);
       setLoading(false);
-    } catch (error) {
-      console.error("Error cargando pedidos:", error);
+    } catch (_error) {
+      console.error("Error cargando pedidos:", _error);
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    cargarPedidos();
+    const intervalo = setInterval(cargarPedidos, 5000);
+    return () => clearInterval(intervalo);
+  }, []);
 
   const entregarPedido = async (e, pedidoId) => {
     e.stopPropagation();
@@ -152,9 +151,9 @@ const ListaPedidosActivos = () => {
                 {/* Barra de progreso resumida */}
                 {!isExpanded && (
                   <div className="pedido-progress">
-                    {items.map((item, idx) => (
-                      <div 
-                        key={idx} 
+                    {items.map((item) => (
+                      <div
+                        key={item.id}
                         className={`progress-bar ${item.estado === 'Listo' ? 'bar-listo' : item.estado === 'En Preparación' ? 'bar-prep' : 'bar-pendiente'}`}
                         title={item.producto_nombre}
                       />
@@ -166,14 +165,13 @@ const ListaPedidosActivos = () => {
                 {isExpanded && (
                   <div className="pedido-detalle animate-fade-in">
                     <div className="pedido-items">
-                      {items.map((item, idx) => {
-                        // USAR subtotal si viene del backend, sino calcular
-                        const subtotalItem = item.subtotal 
-                          ? parseFloat(item.subtotal) 
+                      {items.map((item) => {
+                        const subtotalItem = item.subtotal
+                          ? parseFloat(item.subtotal)
                           : (parseFloat(item.precio_unitario) || 0) * (parseInt(item.cantidad) || 0);
-                        
+
                         return (
-                          <div key={idx} className="pedido-item">
+                          <div key={item.id} className="pedido-item">
                             <div className="item-info">
                               <div className="item-nombre">
                                 <strong>{item.cantidad}×</strong> {item.producto_nombre}
