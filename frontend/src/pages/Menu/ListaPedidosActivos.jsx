@@ -168,9 +168,9 @@ function PedidoCard({ id, items, expanded, onToggle, onEntregar, onCancelar }) {
 
       {!expanded && (
         <div className="mt-2.5 flex gap-1">
-          {items.map((item, idx) => (
+          {items.map((item) => (
             <span
-              key={idx}
+              key={item.id}
               title={item.producto_nombre}
               className={cn(
                 'h-1.5 flex-1 rounded-full',
@@ -184,12 +184,12 @@ function PedidoCard({ id, items, expanded, onToggle, onEntregar, onCancelar }) {
       {expanded && (
         <div className="mt-3 animate-fadeIn border-t border-cream-200 pt-3">
           <ul className="flex flex-col gap-2.5">
-            {items.map((item, idx) => {
+            {items.map((item) => {
               const subtotalItem = item.subtotal
                 ? parseFloat(item.subtotal)
                 : (parseFloat(item.precio_unitario) || 0) * (parseInt(item.cantidad) || 0);
               return (
-                <li key={idx} className="flex items-start justify-between gap-2 text-sm">
+                <li key={item.id} className="flex items-start justify-between gap-2 text-sm">
                   <div className="min-w-0">
                     <p className="text-coffee-800">
                       <strong>{item.cantidad}×</strong> {item.producto_nombre}

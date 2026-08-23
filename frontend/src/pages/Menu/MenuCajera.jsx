@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import {
   BarChart3,
@@ -41,6 +41,14 @@ export default function MenuCajera() {
   const [cargandoMenu, setCargandoMenu] = useState(true);
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
   const [tabActiva, setTabActiva] = useState('catalogo');
+
+  const clienteInputRef = useRef(null);
+
+  useEffect(() => {
+    if (tabActiva === 'carrito' && clienteInputRef.current) {
+      clienteInputRef.current.focus();
+    }
+  }, [tabActiva]);
 
   const cargarDatos = useCallback(async () => {
     try {
@@ -146,13 +154,20 @@ export default function MenuCajera() {
 
   const total = carrito.reduce((sum, item) => sum + item.precio * item.cantidad, 0);
 
-  const productosFiltrados = productos.filter((p) => {
-    const matchCategoria = categoriaSeleccionada === 'Todas' || p.categoria.nombre === categoriaSeleccionada;
-    const texto = busqueda.toLowerCase();
-    const matchBusqueda =
-      busqueda === '' || p.nombre.toLowerCase().includes(texto) || (p.descripcion && p.descripcion.toLowerCase().includes(texto));
-    return matchCategoria && matchBusqueda;
-  });
+  const busquedaLower = useMemo(() => busqueda.toLowerCase(), [busqueda]);
+
+  const productosFiltrados = useMemo(
+    () =>
+      productos.filter((p) => {
+        const matchCategoria = categoriaSeleccionada === 'Todas' || p.categoria.nombre === categoriaSeleccionada;
+        const matchBusqueda =
+          busqueda === '' ||
+          p.nombre.toLowerCase().includes(busquedaLower) ||
+          (p.descripcion && p.descripcion.toLowerCase().includes(busquedaLower));
+        return matchCategoria && matchBusqueda;
+      }),
+    [productos, categoriaSeleccionada, busqueda, busquedaLower]
+  );
 
   const seccionTabs = [
     { value: 'catalogo', label: 'Catálogo', icon: UtensilsCrossed },
@@ -245,11 +260,11 @@ export default function MenuCajera() {
               Pedido actual
             </h2>
             <Input
+              ref={clienteInputRef}
               value={cliente}
               onChange={(e) => setCliente(e.target.value)}
               placeholder="Nombre del cliente o mesa..."
               aria-label="Nombre del cliente o mesa"
-              autoFocus={tabActiva === 'carrito'}
             />
           </div>
 

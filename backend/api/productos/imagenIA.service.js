@@ -84,7 +84,8 @@ const generarYGuardarImagen = async ({ productoId, nombre, descripcion }) => {
   const resultado = await cloudinary.uploader.upload(`data:image/jpeg;base64,${base64}`, {
     folder: 'cafe-encuentro/productos',
     public_id: `producto_${productoId}`,
-    overwrite: true
+    overwrite: true,
+    invalidate: true
   });
 
   return resultado.secure_url;
