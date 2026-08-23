@@ -1,61 +1,93 @@
-import { useState, useEffect, useContext, useMemo, useCallback, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'wouter';
+import {
+  BarChart3,
+  Coffee,
+  LogOut,
+  Search,
+  Settings,
+  ShoppingCart,
+  StickyNote,
+  Trash2,
+  UtensilsCrossed,
+} from 'lucide-react';
 import api from '../../services/api';
-import { AuthContext } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import ListaPedidosActivos from './ListaPedidosActivos';
 import ModalProducto from '../../components/ModalProducto';
-import { useLocation } from 'wouter';
-import './MenuCajera.css';
+import Tabs from '../../components/ui/Tabs';
+import Input from '../../components/ui/Input';
+import Button from '../../components/ui/Button';
+import IconButton from '../../components/ui/IconButton';
+import Badge from '../../components/ui/Badge';
+import EmptyState from '../../components/ui/EmptyState';
+import { SkeletonGrid } from '../../components/ui/Skeleton';
+import { fieldControlClasses } from '../../components/ui/Input';
+import { cn } from '../../lib/cn';
 
-const MenuCajera = () => {
-  const { user, logout } = useContext(AuthContext);
+export default function MenuCajera() {
+  const { user, logout } = useAuth();
+  const toast = useToast();
+  const [, setLocation] = useLocation();
+
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [carrito, setCarrito] = useState([]);
   const [cliente, setCliente] = useState('');
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('Todas');
-  const [procesando, setProcesando] = useState(false);
-  const [, setLocation] = useLocation();
-  const [productoSeleccionado, setProductoSeleccionado] = useState(null);
   const [busqueda, setBusqueda] = useState('');
-  const [tabActiva, setTabActiva] = useState('catalogo'); // Para móviles
+  const [procesando, setProcesando] = useState(false);
+  const [cargandoMenu, setCargandoMenu] = useState(true);
+  const [productoSeleccionado, setProductoSeleccionado] = useState(null);
+  const [tabActiva, setTabActiva] = useState('catalogo');
 
-  // Ref para manejar el foco del input de cliente sin autoFocus condicional
   const clienteInputRef = useRef(null);
 
-  useEffect(() => { cargarDatos(); }, []);
-
-  // Foco programático solo cuando el usuario cambia activamente a la tab carrito
   useEffect(() => {
     if (tabActiva === 'carrito' && clienteInputRef.current) {
       clienteInputRef.current.focus();
     }
   }, [tabActiva]);
 
-  const cargarDatos = async () => {
+  const cargarDatos = useCallback(async () => {
     try {
-      const res = await api.get('/productos/menu');
-      setProductos(res.data.menu);
-      const cats = [...new Set(res.data.menu.map(p => p.categoria.nombre))];
+      const { data } = await api.get('/productos/menu');
+      setProductos(data.menu);
+      const cats = [...new Set(data.menu.map((p) => p.categoria.nombre))];
       setCategorias(['Todas', ...cats]);
-    } catch (error) { 
-      console.error(error); 
+    } catch (err) {
+      console.error(err);
+      toast.error('No se pudo cargar el catálogo de productos.');
+    } finally {
+      setCargandoMenu(false);
     }
-  };
+  }, [toast]);
 
-  const abrirModalProducto = useCallback((producto) => {
-    if (producto.stock <= 0) return alert('⚠️ No hay stock');
-    setProductoSeleccionado(producto);
-  }, []);
+  useEffect(() => {
+    cargarDatos();
+  }, [cargarDatos]);
+
+  const abrirModalProducto = useCallback(
+    (producto) => {
+      if (producto.stock <= 0) {
+        toast.warning('No hay stock de este producto.');
+        return;
+      }
+      setProductoSeleccionado(producto);
+    },
+    [toast]
+  );
+
+  const cerrarModalProducto = useCallback(() => setProductoSeleccionado(null), []);
 
   const agregarAlCarrito = useCallback((itemConfigurado) => {
     let prodVinculadoId = null;
     if (itemConfigurado.acompanamiento_id) {
-        const acompOriginal = itemConfigurado.acompanamientos?.find(
-            a => a.id.toString() === itemConfigurado.acompanamiento_id.toString()
-        );
-        if (acompOriginal) {
-            prodVinculadoId = acompOriginal.producto_vinculado_id;
-        }
+      const acompOriginal = itemConfigurado.acompanamientos?.find(
+        (a) => a.id.toString() === itemConfigurado.acompanamiento_id.toString()
+      );
+      if (acompOriginal) prodVinculadoId = acompOriginal.producto_vinculado_id;
     }
 
     const itemCart = {
@@ -68,326 +100,305 @@ const MenuCajera = () => {
       acompanamiento_nombre: itemConfigurado.acompanamiento_nombre,
       acompanamiento_vinculado_id: prodVinculadoId,
       notas: itemConfigurado.instrucciones_especiales,
-      destino_id: itemConfigurado.destino.id
+      destino_id: itemConfigurado.destino.id,
     };
 
-    // Functional update para evitar stale closure del estado carrito
-    setCarrito(prev => [...prev, itemCart]);
+    setCarrito((prev) => [...prev, itemCart]);
     if (window.innerWidth < 1024) setTabActiva('carrito');
   }, []);
 
   const eliminarDelCarrito = useCallback((tempId) => {
-    setCarrito(prev => prev.filter(item => item.tempId !== tempId));
+    setCarrito((prev) => prev.filter((item) => item.tempId !== tempId));
   }, []);
 
   const confirmarPedido = useCallback(async () => {
-    if (!cliente.trim()) return alert('⚠️ Falta nombre del cliente');
-    if (carrito.length === 0) return alert('⚠️ Carrito vacío');
-
-    const itemsSinAcompRequerido = [];
-    for (const item of carrito) {
-      const prodOriginal = productos.find(p => p.id === item.id);
-      if (prodOriginal?.acompanamientos?.length > 0 && !item.acompanamiento_id) {
-        itemsSinAcompRequerido.push(item.nombre);
-      }
+    if (!cliente.trim()) {
+      toast.warning('Falta el nombre del cliente.');
+      return;
+    }
+    if (carrito.length === 0) {
+      toast.warning('El carrito está vacío.');
+      return;
     }
 
+    const itemsSinAcompRequerido = carrito
+      .filter((item) => {
+        const prodOriginal = productos.find((p) => p.id === item.id);
+        return prodOriginal?.acompanamientos?.length > 0 && !item.acompanamiento_id;
+      })
+      .map((item) => item.nombre);
+
     if (itemsSinAcompRequerido.length > 0) {
-      const productosLista = itemsSinAcompRequerido.join(', ');
-      return alert(`⚠️ Los siguientes productos requieren seleccionar un acompañamiento:\n\n${productosLista}`);
+      toast.error(`Falta seleccionar acompañamiento para: ${itemsSinAcompRequerido.join(', ')}`);
+      return;
     }
 
     setProcesando(true);
     try {
       const payload = {
         cliente,
-        items: carrito.map(item => ({
+        items: carrito.map((item) => ({
           producto_id: item.id,
           cantidad: item.cantidad,
           acompanamiento_id: item.acompanamiento_id,
-          instrucciones_especiales: item.notas
-        }))
+          instrucciones_especiales: item.notas,
+        })),
       };
       await api.post('/pedidos', payload);
-      alert('✅ Pedido confirmado');
+      toast.success('Pedido confirmado.');
       setCarrito([]);
       setCliente('');
       cargarDatos();
       if (window.innerWidth < 1024) setTabActiva('pedidos');
-    } catch (error) {
-      alert(error.message);
+    } catch (err) {
+      toast.error(err.response?.data?.mensaje || 'No se pudo confirmar el pedido.');
     } finally {
       setProcesando(false);
     }
-  }, [cliente, carrito, productos]);
+  }, [cliente, carrito, productos, toast, cargarDatos]);
 
-  // useMemo: solo se recalculan cuando cambian sus dependencias reales,
-  // no en cada keystroke de otros inputs (como "cliente").
   const total = useMemo(
-    () => carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0),
+    () => carrito.reduce((sum, item) => sum + item.precio * item.cantidad, 0),
     [carrito]
   );
 
   const busquedaLower = useMemo(() => busqueda.toLowerCase(), [busqueda]);
 
-  const productosFiltrados = useMemo(() => {
-    return productos.filter(p => {
-      const matchCategoria = categoriaSeleccionada === 'Todas' || p.categoria.nombre === categoriaSeleccionada;
-      if (!matchCategoria) return false;
-      if (busquedaLower === '') return true;
-      return (
-        p.nombre.toLowerCase().includes(busquedaLower) ||
-        (p.descripcion && p.descripcion.toLowerCase().includes(busquedaLower))
-      );
-    });
-  }, [productos, categoriaSeleccionada, busquedaLower]);
+  const productosFiltrados = useMemo(
+    () =>
+      productos.filter((p) => {
+        const matchCategoria = categoriaSeleccionada === 'Todas' || p.categoria.nombre === categoriaSeleccionada;
+        const matchBusqueda =
+          busqueda === '' ||
+          p.nombre.toLowerCase().includes(busquedaLower) ||
+          (p.descripcion && p.descripcion.toLowerCase().includes(busquedaLower));
+        return matchCategoria && matchBusqueda;
+      }),
+    [productos, categoriaSeleccionada, busqueda, busquedaLower]
+  );
+
+  // useMemo: evita que Tabs re-calcule los items en cada render de MenuCajera.
+  const seccionTabs = useMemo(
+    () => [
+      { value: 'catalogo', label: 'Catálogo', icon: UtensilsCrossed },
+      { value: 'carrito', label: 'Carrito', icon: ShoppingCart, count: carrito.length || undefined },
+      { value: 'pedidos', label: 'Activos', icon: BarChart3 },
+    ],
+    [carrito.length]
+  );
+
+  const categoriasTabs = useMemo(
+    () => categorias.map((c) => ({ value: c, label: c })),
+    [categorias]
+  );
 
   return (
-    <div className="pos-container">
-      
-      {/* HEADER */}
-      <div className="pos-header">
-        <div className="pos-header-content">
-          <div>
-            <h2>☕ Café Encuentro</h2>
-            <p className="pos-header-user">
-              Cajera: <strong>{user?.nombre}</strong>
+    <div className="flex h-screen flex-col overflow-hidden bg-cream-100">
+      <header className="flex shrink-0 items-center justify-between gap-3 bg-coffee-800 px-4 py-3 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cream-50/10 text-cream-50">
+            <Coffee className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-bold text-cream-50 sm:text-lg">Café Encuentro</h1>
+            <p className="truncate text-xs text-cream-200/80">
+              Cajera: <strong className="font-semibold text-cream-50">{user?.nombre}</strong>
             </p>
           </div>
-          
-          <div className="pos-header-actions">
-            <button 
-              onClick={() => setLocation('/registros')} 
-              className="btn btn-icon"
-              title="Registros"
-            >
-              📊
-            </button>
-            <button 
-              onClick={() => setLocation('/admin')} 
-              className="btn btn-icon"
-              title="Administración"
-            >
-              ⚙️
-            </button>
-            <button 
-              onClick={logout} 
-              className="btn btn-icon"
-              title="Cerrar sesión"
-            >
-              🚪
-            </button>
-          </div>
         </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <IconButton label="Registros" variant="on-dark" onClick={() => setLocation('/registros')}>
+            <BarChart3 className="h-[18px] w-[18px]" />
+          </IconButton>
+          <IconButton label="Administración" variant="on-dark" onClick={() => setLocation('/admin')}>
+            <Settings className="h-[18px] w-[18px]" />
+          </IconButton>
+          <IconButton label="Cerrar sesión" variant="on-dark" onClick={logout}>
+            <LogOut className="h-[18px] w-[18px]" />
+          </IconButton>
+        </div>
+      </header>
+
+      <div className="shrink-0 border-b border-cream-300 bg-cream-50 px-4 py-2 sm:px-6 lg:hidden">
+        <Tabs items={seccionTabs} value={tabActiva} onChange={setTabActiva} />
       </div>
 
-      {/* TABS MÓVILES */}
-      <div className="pos-tabs-mobile">
-        <div className="pos-tabs-container">
-          <button 
-            className={`pos-tab-btn ${tabActiva === 'catalogo' ? 'active' : ''}`}
-            onClick={() => setTabActiva('catalogo')}
-          >
-            <span>🍽️</span>
-            <span>Catálogo</span>
-          </button>
-          <button 
-            className={`pos-tab-btn ${tabActiva === 'carrito' ? 'active' : ''}`}
-            onClick={() => setTabActiva('carrito')}
-          >
-            <span>🛒</span>
-            <span>Carrito</span>
-            {carrito.length > 0 && (
-              <span className="badge badge-error" style={{ marginLeft: '0.25rem' }}>
-                {carrito.length}
-              </span>
-            )}
-          </button>
-          <button 
-            className={`pos-tab-btn ${tabActiva === 'pedidos' ? 'active' : ''}`}
-            onClick={() => setTabActiva('pedidos')}
-          >
-            <span>📋</span>
-            <span>Activos</span>
-          </button>
-        </div>
-      </div>
-
-      {/* LAYOUT PRINCIPAL */}
-      <div className="pos-layout">
-        
-        {/* CATÁLOGO */}
-        <div className={`pos-catalogo ${tabActiva === 'catalogo' ? 'active' : ''}`}>
-          
-          <div className="pos-catalogo-filtros">
-            {/* Buscador */}
-            <div className="pos-buscador">
-              <input 
-                type="text"
-                placeholder="🔍 Buscar producto..."
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-              />
-            </div>
-
-            {/* Categorías */}
-            <div className="pos-categorias">
-              {categorias.map(cat => (
-                <button 
-                  key={cat} 
-                  onClick={() => setCategoriaSeleccionada(cat)}
-                  className={categoriaSeleccionada === cat ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Grid de Productos */}
-          <div className="pos-productos-grid">
-            {productosFiltrados.map(prod => (
-              <div 
-                key={prod.id} 
-                className={`card producto-card ${prod.stock === 0 ? 'sin-stock' : ''}`}
-                onClick={() => abrirModalProducto(prod)}
-              >
-                {/* Badge de stock bajo */}
-                {prod.stock < 5 && prod.stock > 0 && (
-                  <div className="badge badge-warning producto-badge-stock">
-                    ¡Quedan {prod.stock}!
-                  </div>
-                )}
-                
-                {prod.imagen_url && (
-                  <div className="producto-imagen">
-                    <img src={prod.imagen_url} alt={prod.nombre} loading="lazy" />
-                  </div>
-                )}
-
-                <div>
-                  <h4 className="producto-nombre">{prod.nombre}</h4>
-                  <p className="producto-stock">Stock: {prod.stock}</p>
-                </div>
-                
-                <div className="producto-footer">
-                  <span className="producto-precio">${prod.precio}</span>
-                  {prod.stock > 0 && (
-                    <span className="producto-icono-add">➕</span>
-                  )}
-                </div>
-              </div>
-            ))}
-            
-            {productosFiltrados.length === 0 && (
-              <div className="pos-productos-vacio">
-                <p className="pos-productos-vacio-icono">🔍</p>
-                <p>No se encontraron productos</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* CARRITO */}
-        <div className={`pos-carrito ${tabActiva === 'carrito' ? 'active' : ''}`}>
-          
-          <div className="pos-carrito-header">
-            <h3>🛒 Pedido Actual</h3>
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {/* Catálogo */}
+        <section
+          className={cn(
+            'min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-6',
+            tabActiva === 'catalogo' ? 'flex' : 'hidden',
+            'lg:flex'
+          )}
+        >
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-coffee-400" aria-hidden="true" />
             <input
-              ref={clienteInputRef}
               type="text"
-              placeholder="Nombre del cliente o mesa..."
-              value={cliente}
-              onChange={e => setCliente(e.target.value)}
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar producto..."
+              aria-label="Buscar producto"
+              className={cn(fieldControlClasses, 'pl-10')}
             />
           </div>
 
-          <div className="pos-carrito-items">
-            {carrito.length === 0 ? (
-              <div className="carrito-vacio">
-                <p className="carrito-vacio-icono">🛒</p>
-                <p>El carrito está vacío</p>
-                <small>Selecciona productos del catálogo</small>
-              </div>
+          <div className="mt-3">
+            <Tabs items={categoriasTabs} value={categoriaSeleccionada} onChange={setCategoriaSeleccionada} />
+          </div>
+
+          <div className="mt-4 flex-1">
+            {cargandoMenu ? (
+              <SkeletonGrid count={8} className="sm:grid-cols-3 xl:grid-cols-4" />
+            ) : productosFiltrados.length === 0 ? (
+              <EmptyState icon={Search} title="No se encontraron productos" compact />
             ) : (
-              carrito.map(item => (
-                <div key={item.tempId} className="carrito-item animate-fade-in">
-                  <div className="carrito-item-info">
-                    <div className="carrito-item-nombre">
-                      <span className="carrito-item-cantidad">{item.cantidad}×</span> {item.nombre}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                {productosFiltrados.map((prod) => (
+                  // onOpen es estable (useCallback) — ProductoCardPOS no re-renderiza por este prop
+                  <ProductoCardPOS key={prod.id} producto={prod} onOpen={abrirModalProducto} />
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Carrito */}
+        <aside
+          className={cn(
+            'min-h-0 w-full shrink-0 flex-col border-cream-300 bg-white',
+            tabActiva === 'carrito' ? 'flex' : 'hidden',
+            'lg:flex lg:w-[380px] lg:border-l'
+          )}
+        >
+          <div className="shrink-0 border-b border-cream-200 p-4">
+            <h2 className="mb-3 flex items-center gap-2 text-base font-bold text-coffee-900">
+              <ShoppingCart className="h-5 w-5 text-coffee-500" aria-hidden="true" />
+              Pedido actual
+            </h2>
+            <Input
+              ref={clienteInputRef}
+              value={cliente}
+              onChange={(e) => setCliente(e.target.value)}
+              placeholder="Nombre del cliente o mesa..."
+              aria-label="Nombre del cliente o mesa"
+            />
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            {carrito.length === 0 ? (
+              <EmptyState icon={ShoppingCart} title="El carrito está vacío" description="Seleccioná productos del catálogo." compact />
+            ) : (
+              <ul className="flex flex-col gap-2.5">
+                {carrito.map((item) => (
+                  <li key={item.tempId} className="animate-fadeIn rounded-xl border border-cream-200 bg-cream-50 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-coffee-900">
+                          <span className="text-coffee-500">{item.cantidad}×</span> {item.nombre}
+                        </p>
+                        {item.acompanamiento_nombre && (
+                          <p className="mt-0.5 text-xs text-coffee-500">+ {item.acompanamiento_nombre}</p>
+                        )}
+                        {item.notas && (
+                          <p className="mt-0.5 flex items-start gap-1 text-xs text-coffee-500">
+                            <StickyNote className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+                            {item.notas}
+                          </p>
+                        )}
+                      </div>
+                      <span className="shrink-0 text-sm font-bold text-coffee-800">${(item.precio * item.cantidad).toFixed(2)}</span>
                     </div>
-                    {item.acompanamiento_nombre && (
-                      <div className="carrito-item-acomp">+ {item.acompanamiento_nombre}</div>
-                    )}
-                    {item.notas && (
-                      <div className="carrito-item-nota">📝 {item.notas}</div>
-                    )}
-                  </div>
-                  
-                  <div className="carrito-item-acciones">
-                    <div className="carrito-item-precio">
-                      ${(item.precio * item.cantidad).toFixed(2)}
-                    </div>
-                    <button 
+                    <button
                       onClick={() => eliminarDelCarrito(item.tempId)}
-                      className="btn-ghost"
-                      style={{ 
-                        color: 'var(--error)',
-                        fontSize: '0.8125rem',
-                        padding: '0.25rem 0.5rem'
-                      }}
+                      className="mt-2 flex items-center gap-1 text-xs font-semibold text-danger-600 hover:text-danger-700"
                     >
-                      🗑️ Quitar
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      Quitar
                     </button>
-                  </div>
-                </div>
-              ))
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
 
-          <div className="pos-carrito-footer">
-            <div className="carrito-total">
-              <span>Total</span>
-              <span>${total.toFixed(2)}</span>
+          <div className="shrink-0 border-t border-cream-200 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-sm font-semibold text-coffee-600">Total</span>
+              <span className="text-2xl font-bold text-coffee-900">${total.toFixed(2)}</span>
             </div>
-            
-            <button 
-              onClick={confirmarPedido}
-              disabled={procesando || carrito.length === 0}
-              className="btn btn-lg carrito-btn-confirmar"
-            >
-              {procesando ? (
-                <>
-                  <svg className="animate-spin" style={{ width: '20px', height: '20px' }} viewBox="0 0 24 24">
-                    <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                    <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Procesando...
-                </>
-              ) : (
-                <>✅ CONFIRMAR PEDIDO ({carrito.length})</>
-              )}
-            </button>
+            <Button fullWidth size="lg" loading={procesando} disabled={carrito.length === 0} onClick={confirmarPedido}>
+              {procesando ? 'Procesando…' : `Confirmar pedido (${carrito.length})`}
+            </Button>
           </div>
-        </div>
+        </aside>
 
-        {/* PEDIDOS ACTIVOS */}
-        <div className={`pos-pedidos ${tabActiva === 'pedidos' ? 'active' : ''}`}>
+        {/* Pedidos activos */}
+        <aside
+          className={cn(
+            'min-h-0 w-full shrink-0 flex-col border-cream-300 bg-white',
+            tabActiva === 'pedidos' ? 'flex' : 'hidden',
+            'lg:flex lg:w-[360px] lg:border-l'
+          )}
+        >
           <ListaPedidosActivos />
-        </div>
+        </aside>
       </div>
 
-      {/* MODAL PRODUCTO */}
       {productoSeleccionado && (
-        <ModalProducto 
-          producto={productoSeleccionado} 
-          carrito={carrito} // <--- AGREGAR ESTA PROP
-          onClose={() => setProductoSeleccionado(null)} 
-          onConfirm={agregarAlCarrito} 
+        <ModalProducto
+          key={productoSeleccionado.id}
+          producto={productoSeleccionado}
+          carrito={carrito}
+          onClose={cerrarModalProducto}
+          onConfirm={agregarAlCarrito}
         />
       )}
     </div>
   );
-};
+}
 
-export default MenuCajera;
+// React.memo: el grid puede tener 50+ cards. Sin memo re-renderizarían todas
+// en cada keystroke de búsqueda aunque el producto no haya cambiado.
+// onOpen es estable (useCallback en el padre) → memo es efectivo.
+const ProductoCardPOS = memo(function ProductoCardPOS({ producto, onOpen }) {
+  const sinStock = producto.stock === 0;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(producto)}
+      disabled={sinStock}
+      className={cn(
+        'flex flex-col overflow-hidden rounded-2xl border border-cream-300 bg-white text-left shadow-card transition-all',
+        'hover:-translate-y-0.5 hover:shadow-elevated hover:border-coffee-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2',
+        sinStock && 'cursor-not-allowed opacity-50 hover:translate-y-0 hover:shadow-card'
+      )}
+    >
+      <div className="relative h-24 shrink-0 sm:h-28">
+        {producto.imagen_url ? (
+          <img src={producto.imagen_url} alt={producto.nombre} loading="lazy" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-coffee-100 to-cream-300">
+            <Coffee className="h-8 w-8 text-coffee-400" aria-hidden="true" />
+          </div>
+        )}
+        {producto.stock > 0 && producto.stock < 5 && (
+          <span className="absolute right-1.5 top-1.5">
+            <Badge variant="warning" size="sm">
+              Quedan {producto.stock}
+            </Badge>
+          </span>
+        )}
+      </div>
+      <div className="flex flex-1 flex-col gap-1 p-2.5">
+        <h3 className="line-clamp-2 text-sm font-bold leading-snug text-coffee-900">{producto.nombre}</h3>
+        <p className="text-xs text-coffee-400">Stock: {producto.stock}</p>
+        <div className="mt-auto flex items-center justify-between pt-1.5">
+          <span className="text-base font-bold text-coffee-800">${producto.precio}</span>
+        </div>
+      </div>
+    </button>
+  );
+});
