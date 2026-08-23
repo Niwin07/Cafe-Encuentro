@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import {
   BarChart3,
@@ -68,15 +68,20 @@ export default function MenuCajera() {
     cargarDatos();
   }, [cargarDatos]);
 
-  const abrirModalProducto = (producto) => {
-    if (producto.stock <= 0) {
-      toast.warning('No hay stock de este producto.');
-      return;
-    }
-    setProductoSeleccionado(producto);
-  };
+  const abrirModalProducto = useCallback(
+    (producto) => {
+      if (producto.stock <= 0) {
+        toast.warning('No hay stock de este producto.');
+        return;
+      }
+      setProductoSeleccionado(producto);
+    },
+    [toast]
+  );
 
-  const agregarAlCarrito = (itemConfigurado) => {
+  const cerrarModalProducto = useCallback(() => setProductoSeleccionado(null), []);
+
+  const agregarAlCarrito = useCallback((itemConfigurado) => {
     let prodVinculadoId = null;
     if (itemConfigurado.acompanamiento_id) {
       const acompOriginal = itemConfigurado.acompanamientos?.find(
@@ -100,13 +105,13 @@ export default function MenuCajera() {
 
     setCarrito((prev) => [...prev, itemCart]);
     if (window.innerWidth < 1024) setTabActiva('carrito');
-  };
+  }, []);
 
-  const eliminarDelCarrito = (tempId) => {
+  const eliminarDelCarrito = useCallback((tempId) => {
     setCarrito((prev) => prev.filter((item) => item.tempId !== tempId));
-  };
+  }, []);
 
-  const confirmarPedido = async () => {
+  const confirmarPedido = useCallback(async () => {
     if (!cliente.trim()) {
       toast.warning('Falta el nombre del cliente.');
       return;
@@ -150,9 +155,12 @@ export default function MenuCajera() {
     } finally {
       setProcesando(false);
     }
-  };
+  }, [cliente, carrito, productos, toast, cargarDatos]);
 
-  const total = carrito.reduce((sum, item) => sum + item.precio * item.cantidad, 0);
+  const total = useMemo(
+    () => carrito.reduce((sum, item) => sum + item.precio * item.cantidad, 0),
+    [carrito]
+  );
 
   const busquedaLower = useMemo(() => busqueda.toLowerCase(), [busqueda]);
 
@@ -169,11 +177,20 @@ export default function MenuCajera() {
     [productos, categoriaSeleccionada, busqueda, busquedaLower]
   );
 
-  const seccionTabs = [
-    { value: 'catalogo', label: 'Catálogo', icon: UtensilsCrossed },
-    { value: 'carrito', label: 'Carrito', icon: ShoppingCart, count: carrito.length || undefined },
-    { value: 'pedidos', label: 'Activos', icon: BarChart3 },
-  ];
+  // useMemo: evita que Tabs re-calcule los items en cada render de MenuCajera.
+  const seccionTabs = useMemo(
+    () => [
+      { value: 'catalogo', label: 'Catálogo', icon: UtensilsCrossed },
+      { value: 'carrito', label: 'Carrito', icon: ShoppingCart, count: carrito.length || undefined },
+      { value: 'pedidos', label: 'Activos', icon: BarChart3 },
+    ],
+    [carrito.length]
+  );
+
+  const categoriasTabs = useMemo(
+    () => categorias.map((c) => ({ value: c, label: c })),
+    [categorias]
+  );
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-cream-100">
@@ -228,7 +245,7 @@ export default function MenuCajera() {
           </div>
 
           <div className="mt-3">
-            <Tabs items={categorias.map((c) => ({ value: c, label: c }))} value={categoriaSeleccionada} onChange={setCategoriaSeleccionada} />
+            <Tabs items={categoriasTabs} value={categoriaSeleccionada} onChange={setCategoriaSeleccionada} />
           </div>
 
           <div className="mt-4 flex-1">
@@ -239,7 +256,8 @@ export default function MenuCajera() {
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
                 {productosFiltrados.map((prod) => (
-                  <ProductoCardPOS key={prod.id} producto={prod} onClick={() => abrirModalProducto(prod)} />
+                  // onOpen es estable (useCallback) — ProductoCardPOS no re-renderiza por este prop
+                  <ProductoCardPOS key={prod.id} producto={prod} onOpen={abrirModalProducto} />
                 ))}
               </div>
             )}
@@ -333,7 +351,7 @@ export default function MenuCajera() {
           key={productoSeleccionado.id}
           producto={productoSeleccionado}
           carrito={carrito}
-          onClose={() => setProductoSeleccionado(null)}
+          onClose={cerrarModalProducto}
           onConfirm={agregarAlCarrito}
         />
       )}
@@ -341,13 +359,16 @@ export default function MenuCajera() {
   );
 }
 
-function ProductoCardPOS({ producto, onClick }) {
+// React.memo: el grid puede tener 50+ cards. Sin memo re-renderizarían todas
+// en cada keystroke de búsqueda aunque el producto no haya cambiado.
+// onOpen es estable (useCallback en el padre) → memo es efectivo.
+const ProductoCardPOS = memo(function ProductoCardPOS({ producto, onOpen }) {
   const sinStock = producto.stock === 0;
 
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => onOpen(producto)}
       disabled={sinStock}
       className={cn(
         'flex flex-col overflow-hidden rounded-2xl border border-cream-300 bg-white text-left shadow-card transition-all',
@@ -380,4 +401,4 @@ function ProductoCardPOS({ producto, onClick }) {
       </div>
     </button>
   );
-}
+});

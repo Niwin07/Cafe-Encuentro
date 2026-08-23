@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'wouter';
 import {
   ArrowLeft,
@@ -91,14 +91,10 @@ export default function AdminPanel() {
 
   const [generandoImagen, setGenerandoImagen] = useState(false);
 
-  useEffect(() => {
-    cargarDatos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo debe recargar cuando cambia la pestaña
-  }, [activeTab]);
+  // Estable: no cambia entre renders, evita que Modal re-ejecute su efecto de foco.
+  const closeModal = useCallback(() => setShowModal(false), []);
 
-  const setField = (key) => (value) => setForm((prev) => ({ ...prev, [key]: value }));
-
-  const cargarDatos = async () => {
+  const cargarDatos = useCallback(async () => {
     setLoading(true);
     try {
       const url = activeTab === 'cajeras' ? '/auth/cajeras' : activeTab === 'productos' ? '/productos' : `/${activeTab}`;
@@ -113,9 +109,13 @@ export default function AdminPanel() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab, toast]);
 
-  const cargarAuxiliares = async () => {
+  useEffect(() => {
+    cargarDatos();
+  }, [cargarDatos]);
+
+  const cargarAuxiliares = useCallback(async () => {
     try {
       const [resCat, resDest, resAcomp, resProd] = await Promise.all([
         api.get('/categorias'),
@@ -130,131 +130,48 @@ export default function AdminPanel() {
     } catch (err) {
       console.error('Error cargando auxiliares:', err);
     }
-  };
+  }, []);
 
-  const handleQuickCreateAcomp = async (e) => {
-    e.preventDefault();
-    if (!nuevoAcompNombre.trim()) return;
-    setCreandoAcomp(true);
-    try {
-      const { data: res } = await api.post('/acompanamientos', {
-        nombre: nuevoAcompNombre,
-        categoria: nuevoAcompCategoria,
-        stock: 50,
-      });
-      const nuevoItem = { id: res.id, nombre: nuevoAcompNombre, categoria: nuevoAcompCategoria, stock: 50 };
-      setAuxAcomp((prev) => [...prev, nuevoItem]);
-      setForm((prev) => ({ ...prev, acompanamientos_ids: [...prev.acompanamientos_ids, nuevoItem.id] }));
-      setNuevoAcompNombre('');
-      toast.success('Opción creada.');
-    } catch (err) {
-      toast.error(err.response?.data?.mensaje || 'No se pudo crear la opción.');
-    } finally {
-      setCreandoAcomp(false);
-    }
-  };
+  const setField = useCallback(
+    (key) => (value) => setForm((prev) => ({ ...prev, [key]: value })),
+    []
+  );
 
-  const construirPayload = () => {
-    if (activeTab === 'productos') {
-      return {
-        nombre: form.nombre,
-        descripcion: form.descripcion,
-        precio: form.precio,
-        stock: form.stock,
-        categoria_id: form.categoria_id,
-        destino_id: form.destino_id,
-        acompanamientos_ids: form.acompanamientos_ids,
-      };
-    }
-    if (activeTab === 'acompanamientos') {
-      const payload = {
-        nombre: form.nombre,
-        categoria: form.categoria,
-        producto_vinculado_id: form.producto_vinculado_id || null,
-      };
-      // Igual que en un <input disabled>: si hay producto vinculado no se manda stock manual
-      if (!form.producto_vinculado_id) payload.stock = form.stock;
-      return payload;
-    }
-    if (activeTab === 'cajeras') {
-      return { nombre: form.nombre, usuario: form.usuario, password: form.password };
-    }
-    // categorias / destinos
-    return { nombre: form.nombre };
-  };
-
-  const handleSave = async (e) => {
-    e.preventDefault();
-    setGuardando(true);
-    try {
-      const payload = construirPayload();
-      if (activeTab === 'cajeras') {
-        await api.post('/auth/registro', payload);
-      } else if (editingItem?.id) {
-        await api.put(`/${activeTab}/${editingItem.id}`, payload);
-      } else {
-        await api.post(`/${activeTab}`, payload);
-      }
-      toast.success('Guardado correctamente.');
-      setShowModal(false);
-      cargarDatos();
-    } catch (err) {
-      toast.error(err.response?.data?.mensaje || 'No se pudo guardar.');
-    } finally {
-      setGuardando(false);
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (activeTab === 'cajeras') {
-      toast.warning('No se pueden eliminar cajeras desde acá.');
-      return;
-    }
-    const ok = await toast.confirm('¿Seguro que querés eliminar este elemento?', { title: 'Eliminar', confirmLabel: 'Eliminar', danger: true });
-    if (!ok) return;
-    try {
-      await api.delete(`/${activeTab}/${id}`);
-      cargarDatos();
-    } catch (err) {
-      toast.error(err.response?.data?.mensaje || 'No se pudo eliminar.');
-    }
-  };
-
-  const openModal = async (item = null) => {
-    if (activeTab === 'cajeras' && item) {
-      toast.warning('La edición de usuarios no está disponible.');
-      return;
-    }
-
-    if (activeTab !== 'cajeras') await cargarAuxiliares();
-
-    setEditingItem(item || {});
-    setForm({
-      ...formVacio,
-      nombre: item?.nombre || '',
-      descripcion: item?.descripcion || '',
-      precio: item?.precio ?? '',
-      stock: item?.stock ?? '',
-      categoria_id: item?.categoria_id ?? '',
-      destino_id: item?.destino_id ?? '',
-      categoria: item?.categoria || 'Bebida',
-      producto_vinculado_id: item?.producto_vinculado_id || '',
-      acompanamientos_ids: item?.acompanamientos?.map((a) => a.id) || [],
-    });
-    setFiltroAcomp('');
-    setShowModal(true);
-  };
-
-  const toggleAcompanamiento = (id) => {
+  const toggleAcompanamiento = useCallback((id) => {
     setForm((prev) => ({
       ...prev,
       acompanamientos_ids: prev.acompanamientos_ids.includes(id)
         ? prev.acompanamientos_ids.filter((x) => x !== id)
         : [...prev.acompanamientos_ids, id],
     }));
-  };
+  }, []);
 
-  const handleGenerarImagen = async () => {
+  const handleQuickCreateAcomp = useCallback(
+    async (e) => {
+      e.preventDefault();
+      if (!nuevoAcompNombre.trim()) return;
+      setCreandoAcomp(true);
+      try {
+        const { data: res } = await api.post('/acompanamientos', {
+          nombre: nuevoAcompNombre,
+          categoria: nuevoAcompCategoria,
+          stock: 50,
+        });
+        const nuevoItem = { id: res.id, nombre: nuevoAcompNombre, categoria: nuevoAcompCategoria, stock: 50 };
+        setAuxAcomp((prev) => [...prev, nuevoItem]);
+        setForm((prev) => ({ ...prev, acompanamientos_ids: [...prev.acompanamientos_ids, nuevoItem.id] }));
+        setNuevoAcompNombre('');
+        toast.success('Opción creada.');
+      } catch (err) {
+        toast.error(err.response?.data?.mensaje || 'No se pudo crear la opción.');
+      } finally {
+        setCreandoAcomp(false);
+      }
+    },
+    [nuevoAcompNombre, nuevoAcompCategoria, toast]
+  );
+
+  const handleGenerarImagen = useCallback(async () => {
     if (!editingItem?.id) return;
     setGenerandoImagen(true);
     try {
@@ -265,9 +182,103 @@ export default function AdminPanel() {
     } finally {
       setGenerandoImagen(false);
     }
-  };
+  }, [editingItem?.id, toast]);
 
-  const columnas = columnasPara(activeTab);
+  const handleSave = useCallback(
+    async (e) => {
+      e.preventDefault();
+      setGuardando(true);
+      try {
+        let payload;
+        if (activeTab === 'productos') {
+          payload = {
+            nombre: form.nombre,
+            descripcion: form.descripcion,
+            precio: form.precio,
+            stock: form.stock,
+            categoria_id: form.categoria_id,
+            destino_id: form.destino_id,
+            acompanamientos_ids: form.acompanamientos_ids,
+          };
+        } else if (activeTab === 'acompanamientos') {
+          payload = { nombre: form.nombre, categoria: form.categoria, producto_vinculado_id: form.producto_vinculado_id || null };
+          if (!form.producto_vinculado_id) payload.stock = form.stock;
+        } else if (activeTab === 'cajeras') {
+          payload = { nombre: form.nombre, usuario: form.usuario, password: form.password };
+        } else {
+          payload = { nombre: form.nombre };
+        }
+
+        if (activeTab === 'cajeras') {
+          await api.post('/auth/registro', payload);
+        } else if (editingItem?.id) {
+          await api.put(`/${activeTab}/${editingItem.id}`, payload);
+        } else {
+          await api.post(`/${activeTab}`, payload);
+        }
+        toast.success('Guardado correctamente.');
+        closeModal();
+        cargarDatos();
+      } catch (err) {
+        toast.error(err.response?.data?.mensaje || 'No se pudo guardar.');
+      } finally {
+        setGuardando(false);
+      }
+    },
+    [activeTab, form, editingItem, toast, closeModal, cargarDatos]
+  );
+
+  const handleDelete = useCallback(
+    async (id) => {
+      if (activeTab === 'cajeras') {
+        toast.warning('No se pueden eliminar cajeras desde acá.');
+        return;
+      }
+      const ok = await toast.confirm('¿Seguro que querés eliminar este elemento?', {
+        title: 'Eliminar',
+        confirmLabel: 'Eliminar',
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await api.delete(`/${activeTab}/${id}`);
+        cargarDatos();
+      } catch (err) {
+        toast.error(err.response?.data?.mensaje || 'No se pudo eliminar.');
+      }
+    },
+    [activeTab, toast, cargarDatos]
+  );
+
+  const openModal = useCallback(
+    async (item = null) => {
+      if (activeTab === 'cajeras' && item) {
+        toast.warning('La edición de usuarios no está disponible.');
+        return;
+      }
+      if (activeTab !== 'cajeras') await cargarAuxiliares();
+
+      setEditingItem(item || {});
+      setForm({
+        ...formVacio,
+        nombre: item?.nombre || '',
+        descripcion: item?.descripcion || '',
+        precio: item?.precio ?? '',
+        stock: item?.stock ?? '',
+        categoria_id: item?.categoria_id ?? '',
+        destino_id: item?.destino_id ?? '',
+        categoria: item?.categoria || 'Bebida',
+        producto_vinculado_id: item?.producto_vinculado_id || '',
+        acompanamientos_ids: item?.acompanamientos?.map((a) => a.id) || [],
+      });
+      setFiltroAcomp('');
+      setShowModal(true);
+    },
+    [activeTab, toast, cargarAuxiliares]
+  );
+
+  // Memoizado: columnasPara crea objetos con render functions — evita recrearlos en cada render.
+  const columnas = useMemo(() => columnasPara(activeTab), [activeTab]);
 
   return (
     <div className="min-h-screen bg-cream-100 pb-10">
@@ -325,12 +336,12 @@ export default function AdminPanel() {
 
       <Modal
         open={showModal}
-        onClose={() => setShowModal(false)}
+        onClose={closeModal}
         title={`${editingItem?.id ? 'Editar' : 'Crear'} ${NOMBRE_SINGULAR[activeTab]}`}
         size="lg"
         footer={
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setShowModal(false)}>
+            <Button variant="secondary" onClick={closeModal}>
               Cancelar
             </Button>
             <Button type="submit" form="admin-form" loading={guardando} icon={guardando ? undefined : Save}>
@@ -388,7 +399,10 @@ export default function AdminPanel() {
   );
 }
 
-function ProductoCampos({
+// React.memo: evita re-renderizar cuando el padre re-renderiza por cambios en
+// estado no relacionado (loading, data, showModal). Solo re-renderiza cuando
+// alguna de sus props cambia efectivamente.
+const ProductoCampos = memo(function ProductoCampos({
   form,
   setField,
   auxCats,
@@ -407,7 +421,11 @@ function ProductoCampos({
   creandoAcomp,
   onQuickCreateAcomp,
 }) {
-  const acompFiltrados = auxAcomp.filter((ac) => ac.nombre.toLowerCase().includes(filtroAcomp.toLowerCase()));
+  const filtroLower = filtroAcomp.toLowerCase();
+  const acompFiltrados = useMemo(
+    () => auxAcomp.filter((ac) => ac.nombre.toLowerCase().includes(filtroLower)),
+    [auxAcomp, filtroLower]
+  );
 
   return (
     <>
@@ -425,7 +443,15 @@ function ProductoCampos({
               </div>
             )}
             <p className="text-xs text-coffee-400">Se genera automáticamente a partir del nombre y la descripción.</p>
-            <Button type="button" variant="secondary" size="sm" loading={generandoImagen} icon={generandoImagen ? undefined : ImagePlus} onClick={onGenerarImagen} className="self-start">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              loading={generandoImagen}
+              icon={generandoImagen ? undefined : ImagePlus}
+              onClick={onGenerarImagen}
+              className="self-start"
+            >
               {editingItem?.imagen_url ? 'Regenerar imagen' : 'Generar imagen'}
             </Button>
           </div>
@@ -496,7 +522,15 @@ function ProductoCampos({
                 </option>
               ))}
             </Select>
-            <Button type="button" variant="secondary" size="sm" loading={creandoAcomp} disabled={!nuevoAcompNombre.trim()} icon={creandoAcomp ? undefined : Sparkles} onClick={onQuickCreateAcomp}>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              loading={creandoAcomp}
+              disabled={!nuevoAcompNombre.trim()}
+              icon={creandoAcomp ? undefined : Sparkles}
+              onClick={onQuickCreateAcomp}
+            >
               Crear
             </Button>
           </div>
@@ -504,7 +538,7 @@ function ProductoCampos({
       </div>
     </>
   );
-}
+});
 
 function AcompanamientoCampos({ form, setField, listaProductos }) {
   const vinculado = !!form.producto_vinculado_id;
@@ -586,7 +620,9 @@ function columnasPara(activeTab) {
         render: (item) => (
           <div className="flex flex-col">
             <span className="font-bold text-coffee-800">${item.precio}</span>
-            <span className={item.stock < 5 ? 'text-xs font-semibold text-warning-600' : 'text-xs text-coffee-400'}>Stock: {item.stock}</span>
+            <span className={item.stock < 5 ? 'text-xs font-semibold text-warning-600' : 'text-xs text-coffee-400'}>
+              Stock: {item.stock}
+            </span>
           </div>
         ),
       },

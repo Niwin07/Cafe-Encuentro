@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Flame, PackageCheck, StickyNote, Trash2, User, Sparkles } from 'lucide-react';
 import api from '../../services/api';
 import { useToast } from '../../context/ToastContext';
@@ -52,34 +52,40 @@ export default function ListaPedidosActivos() {
     return () => clearInterval(intervalo);
   }, [cargarPedidos]);
 
-  const entregarPedido = async (e, pedidoId) => {
-    e.stopPropagation();
-    const ok = await toast.confirm('¿Entregar este pedido al cliente?', { title: 'Entregar pedido', confirmLabel: 'Entregar' });
-    if (!ok) return;
-    try {
-      await api.patch(`/pedidos/${pedidoId}/entregar`);
-      cargarPedidos();
-    } catch (err) {
-      toast.error(err.response?.data?.mensaje || 'No se pudo entregar el pedido.');
-    }
-  };
+  const entregarPedido = useCallback(
+    async (e, pedidoId) => {
+      e.stopPropagation();
+      const ok = await toast.confirm('¿Entregar este pedido al cliente?', { title: 'Entregar pedido', confirmLabel: 'Entregar' });
+      if (!ok) return;
+      try {
+        await api.patch(`/pedidos/${pedidoId}/entregar`);
+        cargarPedidos();
+      } catch (err) {
+        toast.error(err.response?.data?.mensaje || 'No se pudo entregar el pedido.');
+      }
+    },
+    [toast, cargarPedidos]
+  );
 
-  const cancelarPedido = async (e, pedidoId) => {
-    e.stopPropagation();
-    const ok = await toast.confirm('Se devolverá el stock reservado. ¿Cancelar este pedido?', {
-      title: 'Cancelar pedido',
-      confirmLabel: 'Cancelar pedido',
-      danger: true,
-    });
-    if (!ok) return;
-    try {
-      await api.patch(`/pedidos/${pedidoId}/cancelar`);
-      toast.success('Pedido cancelado correctamente.');
-      cargarPedidos();
-    } catch (err) {
-      toast.error(err.response?.data?.mensaje || 'No se pudo cancelar el pedido.');
-    }
-  };
+  const cancelarPedido = useCallback(
+    async (e, pedidoId) => {
+      e.stopPropagation();
+      const ok = await toast.confirm('Se devolverá el stock reservado. ¿Cancelar este pedido?', {
+        title: 'Cancelar pedido',
+        confirmLabel: 'Cancelar pedido',
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await api.patch(`/pedidos/${pedidoId}/cancelar`);
+        toast.success('Pedido cancelado correctamente.');
+        cargarPedidos();
+      } catch (err) {
+        toast.error(err.response?.data?.mensaje || 'No se pudo cancelar el pedido.');
+      }
+    },
+    [toast, cargarPedidos]
+  );
 
   const totalPedidos = Object.keys(pedidos).length;
 
@@ -110,7 +116,9 @@ export default function ListaPedidosActivos() {
                 id={id}
                 items={items}
                 expanded={expandedId === id}
-                onToggle={() => setExpandedId((prev) => (prev === id ? null : id))}
+                // Se pasa el setter directamente (referencia estable) en lugar de
+                // un arrow inline. PedidoCard computa el toggle internamente con useCallback.
+                onToggle={setExpandedId}
                 onEntregar={entregarPedido}
                 onCancelar={cancelarPedido}
               />
@@ -122,22 +130,37 @@ export default function ListaPedidosActivos() {
   );
 }
 
-function PedidoCard({ id, items, expanded, onToggle, onEntregar, onCancelar }) {
-  const listosParaEntregar = items.every((i) => i.estado === 'Listo' || i.estado === 'Cancelado');
-  const cliente = items[0]?.cliente || 'Cliente';
-  const cajera = items[0]?.cajera_nombre || 'Cajera';
+// React.memo: PedidoCard se renderiza cada POLL_MS (5 s) cuando la lista
+// completa se actualiza. Sin memo, todos los cards re-renderizan aunque sus
+// datos no hayan cambiado. El comparador por defecto de memo (shallow) es
+// suficiente ya que items es un array nuevo del server solo cuando hay cambios.
+const PedidoCard = memo(function PedidoCard({ id, items, expanded, onToggle, onEntregar, onCancelar }) {
+  // handleToggle es estable dentro del card: onToggle (setExpandedId) es un
+  // state setter React (nunca cambia) e id es una string constante del ciclo de vida del card.
+  const handleToggle = useCallback(() => {
+    onToggle((prev) => (prev === id ? null : id));
+  }, [id, onToggle]);
 
-  const estados = {
-    Pendiente: items.filter((i) => i.estado === 'Pendiente').length,
-    'En Preparación': items.filter((i) => i.estado === 'En Preparación').length,
-    Listo: items.filter((i) => i.estado === 'Listo').length,
-  };
-
-  const totalPedido = items.reduce((sum, item) => sum + (parseFloat(item.precio_unitario) || 0) * (parseInt(item.cantidad) || 0), 0);
+  // useMemo: evita recalcular en renders causados por `expanded` cambiando.
+  const { listosParaEntregar, cliente, cajera, estados, totalPedido } = useMemo(() => {
+    const listosParaEntregar = items.every((i) => i.estado === 'Listo' || i.estado === 'Cancelado');
+    const cliente = items[0]?.cliente || 'Cliente';
+    const cajera = items[0]?.cajera_nombre || 'Cajera';
+    const estados = {
+      Pendiente: items.filter((i) => i.estado === 'Pendiente').length,
+      'En Preparación': items.filter((i) => i.estado === 'En Preparación').length,
+      Listo: items.filter((i) => i.estado === 'Listo').length,
+    };
+    const totalPedido = items.reduce(
+      (sum, item) => sum + (parseFloat(item.precio_unitario) || 0) * (parseInt(item.cantidad) || 0),
+      0
+    );
+    return { listosParaEntregar, cliente, cajera, estados, totalPedido };
+  }, [items]);
 
   return (
     <li
-      onClick={onToggle}
+      onClick={handleToggle}
       className={cn(
         'cursor-pointer rounded-2xl border bg-white p-3 shadow-card transition-colors',
         listosParaEntregar ? 'border-success-300 bg-success-50/40' : 'border-cream-300'
@@ -253,4 +276,4 @@ function PedidoCard({ id, items, expanded, onToggle, onEntregar, onCancelar }) {
       </div>
     </li>
   );
-}
+});

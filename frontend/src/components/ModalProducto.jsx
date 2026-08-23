@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import Modal from './ui/Modal';
@@ -23,28 +23,45 @@ export default function ModalProducto({ producto, carrito, onClose, onConfirm })
   const [nota, setNota] = useState('');
   const [acompanamientoId, setAcompanamientoId] = useState('');
 
+  // Todos los cálculos de stock se memoizan con [carrito, producto]:
+  // cuando el usuario escribe en "nota" o cambia "cantidad", estos reduce
+  // no se re-ejecutan (el carrito no cambió). Sin useMemo corrían en cada
+  // keystroke, iterando el carrito N veces por cada opción de acompañamiento.
+  const { enCarritoPrincipal, enCarritoComoAcomp, stockRealProducto, opcionesDisponibles, stockPorAcomp } = useMemo(() => {
+    if (!producto) {
+      return { enCarritoPrincipal: 0, enCarritoComoAcomp: 0, stockRealProducto: 0, opcionesDisponibles: [], stockPorAcomp: {} };
+    }
+
+    const enCarritoPrincipal = carrito.reduce(
+      (acc, item) => (item.id === producto.id ? acc + item.cantidad : acc),
+      0
+    );
+    const enCarritoComoAcomp = carrito.reduce(
+      (acc, item) => (item.acompanamiento_vinculado_id === producto.id ? acc + item.cantidad : acc),
+      0
+    );
+    const stockRealProducto = producto.stock - enCarritoPrincipal - enCarritoComoAcomp;
+    const opcionesDisponibles = producto.acompanamientos || [];
+
+    // Calcula stock de cada acompañamiento en un único recorrido por opción,
+    // en lugar de llamar a una función que recorre el carrito en cada render del select.
+    const stockPorAcomp = opcionesDisponibles.reduce((acc, op) => {
+      const usoDirecto = carrito.reduce((s, item) => (item.acompanamiento_id == op.id ? s + item.cantidad : s), 0);
+      const usoVinculado = op.producto_vinculado_id
+        ? carrito.reduce((s, item) => (item.id === op.producto_vinculado_id ? s + item.cantidad : s), 0)
+        : 0;
+      acc[op.id] = op.stock - usoDirecto - usoVinculado;
+      return acc;
+    }, {});
+
+    return { enCarritoPrincipal, enCarritoComoAcomp, stockRealProducto, opcionesDisponibles, stockPorAcomp };
+  }, [carrito, producto]);
+
+  // Early return DESPUÉS de todos los hooks (Rules of Hooks)
   if (!producto) return null;
 
-  const enCarritoPrincipal = carrito.reduce((acc, item) => (item.id === producto.id ? acc + item.cantidad : acc), 0);
-  const enCarritoComoAcomp = carrito.reduce(
-    (acc, item) => (item.acompanamiento_vinculado_id === producto.id ? acc + item.cantidad : acc),
-    0
-  );
-  const stockRealProducto = producto.stock - enCarritoPrincipal - enCarritoComoAcomp;
-
-  const opcionesDisponibles = producto.acompanamientos || [];
-
-  const calcularStockAcomp = (op) => {
-    const usoDirecto = carrito.reduce((acc, item) => (item.acompanamiento_id == op.id ? acc + item.cantidad : acc), 0);
-    let usoVinculado = 0;
-    if (op.producto_vinculado_id) {
-      usoVinculado = carrito.reduce((acc, item) => (item.id === op.producto_vinculado_id ? acc + item.cantidad : acc), 0);
-    }
-    return op.stock - usoDirecto - usoVinculado;
-  };
-
   const acompSeleccionado = opcionesDisponibles.find((op) => op.id.toString() === acompanamientoId.toString());
-  const stockRealAcomp = acompSeleccionado ? calcularStockAcomp(acompSeleccionado) : 0;
+  const stockRealAcomp = acompSeleccionado ? (stockPorAcomp[acompSeleccionado.id] ?? 0) : 0;
   const stockInsuficienteAcomp = !!acompSeleccionado && stockRealAcomp < cantidad;
   const stockInsuficienteProd = stockRealProducto < cantidad;
   const faltaAcompanamiento = opcionesDisponibles.length > 0 && !acompanamientoId;
@@ -149,7 +166,7 @@ export default function ModalProducto({ producto, carrito, onClose, onConfirm })
             >
               <option value="">-- Seleccioná un acompañamiento --</option>
               {opcionesDisponibles.map((op) => {
-                const stockDisp = calcularStockAcomp(op);
+                const stockDisp = stockPorAcomp[op.id] ?? 0;
                 return (
                   <option key={op.id} value={op.id} disabled={stockDisp < cantidad}>
                     {op.nombre} {op.categoria ? `(${op.categoria})` : ''} — Stock: {stockDisp}

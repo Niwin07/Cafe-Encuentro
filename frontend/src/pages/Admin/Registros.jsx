@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'wouter';
 import { ArrowLeft, Eye, ScrollText, StickyNote, Trash2 } from 'lucide-react';
 import api from '../../services/api';
@@ -36,39 +36,42 @@ export default function Registros() {
   const [pedidoSeleccionado, setPedidoSeleccionado] = useState(null);
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
 
-  useEffect(() => {
-    cargarHistorial();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- cargarHistorial lee estos mismos valores, no necesita estar en la lista
-  }, [fechaDesde, fechaHasta, filtroSector]);
+  const cerrarDetalle = useCallback(() => setPedidoSeleccionado(null), []);
 
-  const obtenerTotalFila = (p) => {
-    if (filtroSector === 'GENERAL') return p.total;
-    if (p.items) return p.items.reduce((sum, item) => sum + (parseFloat(item.subtotal) || 0), 0).toFixed(2);
-    return 0;
-  };
+  const obtenerTotalFila = useCallback(
+    (p) => {
+      if (filtroSector === 'GENERAL') return p.total;
+      if (p.items) return p.items.reduce((sum, item) => sum + (parseFloat(item.subtotal) || 0), 0).toFixed(2);
+      return 0;
+    },
+    [filtroSector]
+  );
 
-  const calcularTotales = (lista, sector) => {
-    const pedidosValidos = lista.filter((p) => {
-      if (!p.estado_general) return true;
-      const estado = p.estado_general.toUpperCase().trim();
-      return estado !== 'CANCELADO' && estado !== 'ANULADO';
-    });
-
-    let totalDinero = 0;
-    if (sector === 'GENERAL') {
-      totalDinero = pedidosValidos.reduce((acc, p) => acc + (parseFloat(p.total) || 0), 0);
-    } else {
-      pedidosValidos.forEach((p) => {
-        if (p.items && Array.isArray(p.items)) {
-          totalDinero += p.items.reduce((sum, item) => sum + (parseFloat(item.subtotal) || 0), 0);
-        }
+  const calcularTotales = useCallback(
+    (lista, sector) => {
+      const pedidosValidos = lista.filter((p) => {
+        if (!p.estado_general) return true;
+        const estado = p.estado_general.toUpperCase().trim();
+        return estado !== 'CANCELADO' && estado !== 'ANULADO';
       });
-    }
 
-    setTotales({ total: totalDinero, cantidad: pedidosValidos.length });
-  };
+      let totalDinero = 0;
+      if (sector === 'GENERAL') {
+        totalDinero = pedidosValidos.reduce((acc, p) => acc + (parseFloat(p.total) || 0), 0);
+      } else {
+        pedidosValidos.forEach((p) => {
+          if (p.items && Array.isArray(p.items)) {
+            totalDinero += p.items.reduce((sum, item) => sum + (parseFloat(item.subtotal) || 0), 0);
+          }
+        });
+      }
 
-  const cargarHistorial = async () => {
+      setTotales({ total: totalDinero, cantidad: pedidosValidos.length });
+    },
+    []
+  );
+
+  const cargarHistorial = useCallback(async () => {
     setLoading(true);
     try {
       const rango = `fecha_desde=${fechaDesde} 00:00:00&fecha_hasta=${fechaHasta} 23:59:59`;
@@ -88,79 +91,94 @@ export default function Registros() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fechaDesde, fechaHasta, filtroSector, toast, calcularTotales]);
 
-  const abrirDetalle = async (pedido) => {
-    if (filtroSector !== 'GENERAL' && pedido.items) {
-      setPedidoSeleccionado(pedido);
-      return;
-    }
-    setCargandoDetalle(true);
-    try {
-      const { data } = await api.get(`/pedidos/${pedido.pedido_id || pedido.id}`);
-      setPedidoSeleccionado(data);
-    } catch (err) {
-      console.error(err);
-      toast.error('No se pudieron cargar los detalles.');
-    } finally {
-      setCargandoDetalle(false);
-    }
-  };
+  useEffect(() => {
+    cargarHistorial();
+  }, [cargarHistorial]);
 
-  const eliminarPedido = async (id) => {
-    const ok = await toast.confirm('Esto afectará la caja. ¿Eliminar este registro?', {
-      title: 'Eliminar registro',
-      confirmLabel: 'Eliminar',
-      danger: true,
-    });
-    if (!ok) return;
-    try {
-      await api.delete(`/pedidos/${id}`);
-      cargarHistorial();
-    } catch (err) {
-      toast.error(err.response?.data?.mensaje || 'No se pudo eliminar el registro.');
-    }
-  };
+  const abrirDetalle = useCallback(
+    async (pedido) => {
+      if (filtroSector !== 'GENERAL' && pedido.items) {
+        setPedidoSeleccionado(pedido);
+        return;
+      }
+      setCargandoDetalle(true);
+      try {
+        const { data } = await api.get(`/pedidos/${pedido.pedido_id || pedido.id}`);
+        setPedidoSeleccionado(data);
+      } catch (err) {
+        console.error(err);
+        toast.error('No se pudieron cargar los detalles.');
+      } finally {
+        setCargandoDetalle(false);
+      }
+    },
+    [filtroSector, toast]
+  );
 
-  const columnas = [
-    {
-      key: 'fecha',
-      header: 'Fecha',
-      render: (p) => (
-        <div className="flex flex-col text-xs text-coffee-500">
-          <span className="font-medium text-coffee-700">{new Date(p.fecha_hora).toLocaleDateString('es-AR')}</span>
-          <span>{new Date(p.fecha_hora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-        </div>
-      ),
+  const eliminarPedido = useCallback(
+    async (id) => {
+      const ok = await toast.confirm('Esto afectará la caja. ¿Eliminar este registro?', {
+        title: 'Eliminar registro',
+        confirmLabel: 'Eliminar',
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await api.delete(`/pedidos/${id}`);
+        cargarHistorial();
+      } catch (err) {
+        toast.error(err.response?.data?.mensaje || 'No se pudo eliminar el registro.');
+      }
     },
-    {
-      key: 'cliente',
-      header: 'Cliente',
-      cardLabel: false,
-      render: (p) => <span className="font-bold text-coffee-900">{p.cliente}</span>,
-    },
-    { key: 'cajera', header: 'Cajera', render: (p) => <Badge variant="neutral" size="sm">{p.cajera_nombre}</Badge> },
-    {
-      key: 'estado',
-      header: 'Estado',
-      align: 'center',
-      render: (p) => (
-        <Badge variant={esCancelado(p.estado_general) ? 'danger' : 'success'} size="sm">
-          {p.estado_general}
-        </Badge>
-      ),
-    },
-    {
-      key: 'total',
-      header: filtroSector === 'GENERAL' ? 'Total ticket' : 'Subtotal sector',
-      align: 'right',
-      render: (p) => (
-        <span className={esCancelado(p.estado_general) ? 'text-coffee-400 line-through' : 'font-bold text-coffee-900'}>
-          ${obtenerTotalFila(p)}
-        </span>
-      ),
-    },
-  ];
+    [toast, cargarHistorial]
+  );
+
+  // useMemo: evita recrear los objetos de columna (con sus render functions) en
+  // cada render del componente. Solo se recalcula cuando cambia filtroSector.
+  const columnas = useMemo(
+    () => [
+      {
+        key: 'fecha',
+        header: 'Fecha',
+        render: (p) => (
+          <div className="flex flex-col text-xs text-coffee-500">
+            <span className="font-medium text-coffee-700">{new Date(p.fecha_hora).toLocaleDateString('es-AR')}</span>
+            <span>{new Date(p.fecha_hora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          </div>
+        ),
+      },
+      {
+        key: 'cliente',
+        header: 'Cliente',
+        cardLabel: false,
+        render: (p) => <span className="font-bold text-coffee-900">{p.cliente}</span>,
+      },
+      { key: 'cajera', header: 'Cajera', render: (p) => <Badge variant="neutral" size="sm">{p.cajera_nombre}</Badge> },
+      {
+        key: 'estado',
+        header: 'Estado',
+        align: 'center',
+        render: (p) => (
+          <Badge variant={esCancelado(p.estado_general) ? 'danger' : 'success'} size="sm">
+            {p.estado_general}
+          </Badge>
+        ),
+      },
+      {
+        key: 'total',
+        header: filtroSector === 'GENERAL' ? 'Total ticket' : 'Subtotal sector',
+        align: 'right',
+        render: (p) => (
+          <span className={esCancelado(p.estado_general) ? 'text-coffee-400 line-through' : 'font-bold text-coffee-900'}>
+            ${obtenerTotalFila(p)}
+          </span>
+        ),
+      },
+    ],
+    [filtroSector, obtenerTotalFila]
+  );
 
   return (
     <div className="min-h-screen bg-cream-100 pb-10">
@@ -231,7 +249,7 @@ export default function Registros() {
 
       <Modal
         open={!!pedidoSeleccionado || cargandoDetalle}
-        onClose={() => setPedidoSeleccionado(null)}
+        onClose={cerrarDetalle}
         title={pedidoSeleccionado ? `Ticket #${(pedidoSeleccionado.id || pedidoSeleccionado.pedido_id).toString().slice(-6)}` : 'Cargando…'}
         size="md"
       >

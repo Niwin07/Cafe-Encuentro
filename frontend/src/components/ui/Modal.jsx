@@ -10,30 +10,34 @@ const SIZES = {
   xl: 'sm:max-w-2xl',
 };
 
-/**
- * Diálogo base: hoja completa desde abajo en mobile, panel centrado en
- * desktop. Cierra con Escape y con click en el overlay.
- */
 export default function Modal({ open, onClose, title, description, children, footer, size = 'md', className }) {
   const titleId = useId();
   const panelRef = useRef(null);
 
+  // Mantiene siempre la referencia más reciente de onClose sin re-ejecutar el efecto.
+  // Patrón "latest ref": evita que una nueva arrow function inline del padre (ej. () => setShowModal(false))
+  // provoque que el efecto se re-ejecute y robe el foco del input activo → teclado no se cierra.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
+
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onClose?.();
+      if (e.key === 'Escape') onCloseRef.current?.();
     };
+
     document.addEventListener('keydown', handleKeyDown);
-    // Foco inicial en el panel para lectores de pantalla / navegación por teclado
     panelRef.current?.focus();
-    // Evita el scroll del body detrás del modal
+
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = prevOverflow;
     };
-  }, [open, onClose]);
+  }, [open]); // solo `open` — onClose se lee desde el ref, no dispara re-ejecución
 
   if (!open) return null;
 
