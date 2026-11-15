@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import './ModalProducto.css';
 
 const ModalProducto = ({ producto, carrito, onClose, onConfirm }) => {
@@ -6,11 +6,8 @@ const ModalProducto = ({ producto, carrito, onClose, onConfirm }) => {
   const [nota, setNota] = useState('');
   const [acompanamientoId, setAcompanamientoId] = useState('');
 
-  useEffect(() => {
-    setCantidad(1);
-    setNota('');
-    setAcompanamientoId('');
-  }, [producto]);
+  // El estado se reinicia al cambiar de producto porque MenuCajera monta el
+  // modal con key={producto.id} (antes: useEffect con setState → render extra).
 
   // ─── Todos los hooks ANTES del early return (Rules of Hooks) ───────────────
 

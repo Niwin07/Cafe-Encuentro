@@ -1,89 +1,28 @@
-import { useState, useEffect, useRef } from 'react';
-import api from '../../services/api';
+import api, { mensajeError } from '../../services/api';
+import usePedidosDestino from '../../hooks/usePedidosDestino';
 import './VistaCafeteria.css';
 
+// Cafetería: Pendiente → En Preparación → Listo
+const SIGUIENTE_ESTADO = {
+  'Pendiente': 'En Preparación',
+  'En Preparación': 'Listo',
+};
+
 const VistaCafeteria = () => {
-  const [pedidos, setPedidos] = useState({});
-  const [ultimoUpdate, setUltimoUpdate] = useState(new Date());
-  const [permisoSonido, setPermisoSonido] = useState(false);
+  const { pedidos, ultimoUpdate, permisoSonido, activarSonido, recargar } =
+    usePedidosDestino('/pedidos/cafeteria/activos');
 
-  // --- REFS PARA AUDIO ---
-  const audioRef = useRef(null);
-  const prevItemsRef = useRef(0);
-  const permisoSonidoRef = useRef(false);
-  const primeraCargaRef = useRef(true);
-
-  // Inicializar audio
-  useEffect(() => {
-    audioRef.current = new Audio('/ding.wav');
-    audioRef.current.volume = 1.0; 
-    audioRef.current.load(); 
-  }, []);
-
-  const cargarPedidos = async () => {
-    try {
-      const res = await api.get('/pedidos/cafeteria/activos');
-      const nuevosItems = res.data.items || {};
-      
-      // Contar total de items individuales (bebidas)
-      const totalItemsActuales = Object.values(nuevosItems).reduce(
-        (sum, list) => sum + list.length, 
-        0
-      );
-
-      // Lógica de Sonido
-      if (primeraCargaRef.current) {
-        prevItemsRef.current = totalItemsActuales;
-        primeraCargaRef.current = false;
-      } else {
-        if (
-          totalItemsActuales > prevItemsRef.current && 
-          permisoSonidoRef.current && 
-          audioRef.current
-        ) {
-          audioRef.current.currentTime = 0;
-          audioRef.current.play().catch(e => console.error(e));
-          if (navigator.vibrate) navigator.vibrate(200);
-        }
-        prevItemsRef.current = totalItemsActuales;
-      }
-
-      setPedidos(nuevosItems);
-      setUltimoUpdate(new Date());
-    } catch (error) {
-      console.error('Error conectando con cafetería:', error);
-    }
-  };
-
-  const activarSonido = () => {
-    if (!audioRef.current) return;
-    audioRef.current.currentTime = 0;
-    audioRef.current.play()
-      .then(() => {
-        setPermisoSonido(true);
-        permisoSonidoRef.current = true;
-      })
-      .catch(e => alert("No se pudo activar el audio."));
-  };
-
-  useEffect(() => {
-    cargarPedidos();
-    const intervalo = setInterval(cargarPedidos, 5000); // 5 segundos para mejor respuesta
-    return () => clearInterval(intervalo);
-  }, []);
-
+  // Cambiar estado del item
   const avanzarEstado = async (itemId, estadoActual) => {
-    const flujo = ['Pendiente', 'En Preparación', 'Listo'];
-    const idx = flujo.indexOf(estadoActual);
-    
-    if (idx < flujo.length - 1) {
-      const nuevoEstado = flujo[idx + 1];
-      try {
-        await api.patch(`/pedidos/items/${itemId}/estado`, { estado: nuevoEstado });
-        cargarPedidos();
-      } catch (error) {
-        alert('Error actualizando estado');
-      }
+    const nuevoEstado = SIGUIENTE_ESTADO[estadoActual];
+    if (!nuevoEstado) return;
+    try {
+      await api.patch(`/pedidos/items/${itemId}/estado`, { estado: nuevoEstado });
+    } catch (error) {
+      // p. ej. la caja canceló el pedido mientras se preparaba
+      alert('⚠️ ' + mensajeError(error, 'Error actualizando estado'));
+    } finally {
+      recargar();
     }
   };
 

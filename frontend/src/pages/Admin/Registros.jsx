@@ -1,12 +1,30 @@
 import { useState, useEffect } from 'react';
-import api from '../../services/api';
+import api, { mensajeError } from '../../services/api';
 import { useLocation } from 'wouter';
 import './Registros.css';
+
+// Fecha local "YYYY-MM-DD". Antes se usaba toISOString() (UTC): en Argentina
+// (UTC-3), desde las 21:00 el filtro "hoy" abría en el día siguiente.
+const fechaLocalISO = (fecha = new Date()) => {
+  const y = fecha.getFullYear();
+  const m = String(fecha.getMonth() + 1).padStart(2, '0');
+  const d = String(fecha.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+// Inicio/fin del día LOCAL convertidos a instante UTC (ISO). Antes se enviaba
+// "YYYY-MM-DD 00:00:00" y el servidor (UTC) lo interpretaba como UTC: se
+// perdían los pedidos de 21:00 a 23:59 hora argentina.
+const limitesDelDia = (desde, hasta) => {
+  const inicio = new Date(`${desde}T00:00:00`);
+  const fin = new Date(`${hasta}T23:59:59.999`);
+  return `fecha_desde=${encodeURIComponent(inicio.toISOString())}&fecha_hasta=${encodeURIComponent(fin.toISOString())}`;
+};
 
 const Registros = () => {
   const [datosMostrados, setDatosMostrados] = useState([]);
   
-  const hoy = new Date().toISOString().split('T')[0];
+  const hoy = fechaLocalISO();
   const [fechaDesde, setFechaDesde] = useState(hoy);
   const [fechaHasta, setFechaHasta] = useState(hoy);
   
@@ -17,12 +35,15 @@ const Registros = () => {
   const [totales, setTotales] = useState({ total: 0, cantidad: 0 });
   
   const [pedidoSeleccionado, setPedidoSeleccionado] = useState(null);
-  const [cargandoDetalle, setCargandoDetalle] = useState(false);
+  const [, setCargandoDetalle] = useState(false);
   
   const [, setLocation] = useLocation();
 
+  // cargarHistorial se redefine en cada render; el efecto solo debe correr
+  // cuando cambian los filtros.
   useEffect(() => {
     cargarHistorial();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fechaDesde, fechaHasta, filtroSector]);
 
   const cargarHistorial = async () => {
@@ -33,13 +54,14 @@ const Registros = () => {
 
       // 1. ELEGIR EL ENDPOINT CORRECTO SEGÚN EL SECTOR
       // Esto soluciona tu problema: usas la lógica del backend que ya filtra por items
+      const rango = limitesDelDia(fechaDesde, fechaHasta);
       if (filtroSector === 'COCINA') {
-        url = `/registros/cocina?fecha_desde=${fechaDesde} 00:00:00&fecha_hasta=${fechaHasta} 23:59:59`;
+        url = `/registros/cocina?${rango}`;
       } else if (filtroSector === 'CAFETERIA') {
-        url = `/registros/cafeteria?fecha_desde=${fechaDesde} 00:00:00&fecha_hasta=${fechaHasta} 23:59:59`;
+        url = `/registros/cafeteria?${rango}`;
       } else {
         // General: Traemos todos los pedidos completos
-        url = `/pedidos?fecha_desde=${fechaDesde} 00:00:00&fecha_hasta=${fechaHasta} 23:59:59&limite=1000`;
+        url = `/pedidos?${rango}&limite=1000`;
       }
       
       const res = await api.get(url);
@@ -57,7 +79,7 @@ const Registros = () => {
 
     } catch (error) {
       console.error(error);
-      alert("Error al cargar el historial");
+      alert('Error al cargar el historial: ' + mensajeError(error));
     } finally {
       setLoading(false);
     }
@@ -107,7 +129,7 @@ const Registros = () => {
       const res = await api.get(`/pedidos/${pedido.pedido_id || pedido.id}`);
       setPedidoSeleccionado(res.data);
     } catch (error) {
-      alert('Error cargando detalles');
+      alert('Error cargando detalles: ' + mensajeError(error));
     } finally {
       setCargandoDetalle(false);
     }
@@ -119,7 +141,7 @@ const Registros = () => {
       await api.delete(`/pedidos/${id}`);
       cargarHistorial(); 
     } catch (error) {
-      alert('Error al eliminar');
+      alert('Error al eliminar: ' + mensajeError(error));
     }
   };
 

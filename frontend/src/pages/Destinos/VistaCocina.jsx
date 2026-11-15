@@ -1,106 +1,29 @@
-import { useState, useEffect, useRef } from 'react';
-import api from '../../services/api';
+import api, { mensajeError } from '../../services/api';
+import usePedidosDestino from '../../hooks/usePedidosDestino';
 import './VistaCocina.css';
 
-
+// Cocina usa un flujo corto. Antes un item 'En Preparación' volvía a 'Pendiente'
+// (indexOf devolvía -1 y se tomaba flujo[0]).
+const SIGUIENTE_ESTADO = {
+  'Pendiente': 'Listo',
+  'En Preparación': 'Listo',
+};
 
 const VistaCocina = () => {
-  const [pedidos, setPedidos] = useState({});
-  const [ultimoUpdate, setUltimoUpdate] = useState(new Date());
-  const [permisoSonido, setPermisoSonido] = useState(false);
+  const { pedidos, ultimoUpdate, permisoSonido, activarSonido, recargar } =
+    usePedidosDestino('/pedidos/cocina/activos');
 
-  // --- REFS (Variables que sobreviven al intervalo) ---
-  const audioRef = useRef(null);
-  const prevPedidosRef = useRef(0);
-  const permisoSonidoRef = useRef(false);
-  const primeraCargaRef = useRef(true);
-
-  // Inicializar audio
-  useEffect(() => {
-    audioRef.current = new Audio('/ding.wav');
-    audioRef.current.volume = 1.0; 
-    audioRef.current.load(); 
-  }, []);
-
-  // Función principal de carga
-  const cargarPedidos = async () => {
-    try {
-      const res = await api.get('/pedidos/cocina/activos');
-      const nuevosItems = res.data.items || {};
-      
-      const totalItemsActuales = Object.values(nuevosItems).reduce(
-        (sum, list) => sum + list.length, 
-        0
-      );
-      
-      if (primeraCargaRef.current) {
-        prevPedidosRef.current = totalItemsActuales;
-        primeraCargaRef.current = false;
-        console.log(`📥 Carga inicial. Items: ${totalItemsActuales} (Sin sonido)`);
-      } else {
-        if (
-          totalItemsActuales > prevPedidosRef.current && 
-          permisoSonidoRef.current && 
-          audioRef.current
-        ) {
-          console.log(`🔔 NUEVO PEDIDO! (De ${prevPedidosRef.current} a ${totalItemsActuales})`);
-          
-          audioRef.current.currentTime = 0;
-          audioRef.current.play()
-            .then(() => console.log("✅ Sonido OK"))
-            .catch(e => console.error("❌ Error Audio:", e));
-          
-          if (navigator.vibrate) navigator.vibrate(200);
-        }
-        
-        prevPedidosRef.current = totalItemsActuales;
-      }
-      
-      setPedidos(nuevosItems);
-      setUltimoUpdate(new Date());
-      
-    } catch (error) {
-      console.error('Error conectando con cocina:', error);
-    }
-  };
-
-  // Función para activar audio con interacción de usuario
-  const activarSonido = () => {
-    if (!audioRef.current) return;
-
-    audioRef.current.currentTime = 0;
-    audioRef.current.play()
-      .then(() => {
-        setPermisoSonido(true);
-        permisoSonidoRef.current = true; 
-        console.log("🔊 Sistema de audio activado");
-      })
-      .catch(e => {
-        alert(`No se pudo reproducir el audio. Verifica que exista /public/ding.mp3`);
-        console.error(e);
-      });
-  };
-
-  // Intervalo (Polling)
-  useEffect(() => {
-    cargarPedidos();
-    const intervalo = setInterval(cargarPedidos, 5000);
-    return () => clearInterval(intervalo);
-  }, []); 
-
-  // Cambiar estado del pedido
+  // Cambiar estado del item
   const avanzarEstado = async (itemId, estadoActual) => {
-    const flujo = ['Pendiente', 'Listo'];
-    const idx = flujo.indexOf(estadoActual);  
-    
-    if (idx < flujo.length - 1) {
-      const nuevoEstado = flujo[idx + 1];
-      try {
-        await api.patch(`/pedidos/items/${itemId}/estado`, { estado: nuevoEstado });
-        cargarPedidos();
-      } catch (error) {
-        alert('Error actualizando estado');
-      }
+    const nuevoEstado = SIGUIENTE_ESTADO[estadoActual];
+    if (!nuevoEstado) return;
+    try {
+      await api.patch(`/pedidos/items/${itemId}/estado`, { estado: nuevoEstado });
+    } catch (error) {
+      // p. ej. la caja canceló el pedido mientras se preparaba
+      alert('⚠️ ' + mensajeError(error, 'Error actualizando estado'));
+    } finally {
+      recargar();
     }
   };
 

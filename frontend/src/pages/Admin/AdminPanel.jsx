@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import api from '../../services/api';
+import api, { mensajeError } from '../../services/api';
 import { useLocation } from 'wouter';
 import AdminModal from './AdminModal';
 import './AdminPanel.css';
@@ -43,7 +43,7 @@ const AdminPanel = () => {
       }
     } catch (error) {
       console.error(error);
-      alert('Error cargando datos: ' + error.message);
+      alert('Error cargando datos: ' + mensajeError(error));
     } finally {
       setLoading(false);
     }
@@ -79,8 +79,8 @@ const AdminPanel = () => {
     try {
       await api.delete(`/${activeTab}/${id}`);
       cargarDatos();
-    } catch {
-      alert('Error al eliminar');
+    } catch (error) {
+      alert('Error al eliminar: ' + mensajeError(error));
     }
   };
 

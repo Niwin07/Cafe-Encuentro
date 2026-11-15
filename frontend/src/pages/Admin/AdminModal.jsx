@@ -1,5 +1,5 @@
 import { useState, useMemo, memo } from 'react';
-import api from '../../services/api';
+import api, { mensajeError } from '../../services/api';
 
 /**
  * Modal de creación/edición extraído de AdminPanel.
@@ -62,7 +62,7 @@ const AdminModal = memo(({
       alert('✅ Guardado correctamente');
       onSaved();
     } catch (error) {
-      alert('Error al guardar: ' + (error.response?.data?.mensaje || error.message));
+      alert('Error al guardar: ' + mensajeError(error));
     }
   };
 
@@ -86,7 +86,7 @@ const AdminModal = memo(({
       setNuevoAcompNombre('');
       alert('✨ Opción creada!');
     } catch (error) {
-      alert('Error: ' + error.message);
+      alert('Error: ' + mensajeError(error));
     } finally {
       setCreandoAcomp(false);
     }
@@ -100,7 +100,7 @@ const AdminModal = memo(({
       const urlFresh = `${res.data.imagen_url}?v=${Date.now()}`;
       onEditingItemUpdate({ imagen_url: urlFresh });
     } catch (error) {
-      alert('Error al generar la imagen: ' + (error.response?.data?.mensaje || error.message));
+      alert('Error al generar la imagen: ' + mensajeError(error));
     } finally {
       setGenerandoImagen(false);
     }

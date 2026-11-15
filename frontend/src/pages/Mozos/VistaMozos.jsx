@@ -19,7 +19,9 @@ const VistaMozos = () => {
     }
     
     try {
-      const res = await api.get('/productos');
+      // Solo activos: antes un producto eliminado (soft delete) con stock seguía
+      // apareciendo en el menú público.
+      const res = await api.get('/productos', { params: { activo: true } });
       const prodsActivos = res.data.productos.filter(p => p.stock > 0);
       setProductos(prodsActivos);
     } catch (error) {
@@ -274,7 +276,7 @@ const VistaMozos = () => {
                     <div className="product-price-box">
                       <span className="price-label">Precio</span>
                       <span className="product-price">
-                        ${producto.precio.toLocaleString('es-AR')}
+                        ${Number(producto.precio).toLocaleString('es-AR')}
                       </span>
                     </div>
                     

@@ -7,6 +7,7 @@ import VistaCafeteria from './pages/Destinos/VistaCafeteria';
 import VistaMozos from './pages/Mozos/VistaMozos'; // <--- IMPORTAR
 import AdminPanel from './pages/Admin/AdminPanel';
 import Registros from './pages/Admin/Registros';
+import RutaProtegida from './components/RutaProtegida';
 
 import './App.css';
 
@@ -20,13 +21,12 @@ function App() {
           {/* Vistas Públicas de Trabajo */}
           <Route path="/cocina" component={VistaCocina} />
           <Route path="/cafeteria" component={VistaCafeteria} />
-          <Route path="/registros" component={Registros} />
-          <Route path="login" component={Login} />
+          <Route path="/login" component={Login} />
 
-          {/* Vista Privada */}
-          <Route path="/pedidos" component={MenuCajera} />
-          {/* Panel de Administración */}
-          <Route path="/admin" component={AdminPanel} />
+          {/* Vistas privadas (el backend exige token en todas sus llamadas) */}
+          <Route path="/pedidos"><RutaProtegida component={MenuCajera} /></Route>
+          <Route path="/registros"><RutaProtegida component={Registros} /></Route>
+          <Route path="/admin"><RutaProtegida component={AdminPanel} /></Route>
           
           <Route>
             <center><h3>Página no encontrada</h3></center>

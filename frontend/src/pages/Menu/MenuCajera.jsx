@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext, useMemo, useCallback, useRef } from 'react';
-import api from '../../services/api';
+import api, { mensajeError } from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
 import ListaPedidosActivos from './ListaPedidosActivos';
 import ModalProducto from '../../components/ModalProducto';
@@ -37,8 +37,9 @@ const MenuCajera = () => {
       setProductos(res.data.menu);
       const cats = [...new Set(res.data.menu.map(p => p.categoria.nombre))];
       setCategorias(['Todas', ...cats]);
-    } catch (error) { 
-      console.error(error); 
+    } catch (error) {
+      console.error(error);
+      alert('⚠️ No se pudo cargar el menú: ' + mensajeError(error));
     }
   };
 
@@ -59,7 +60,7 @@ const MenuCajera = () => {
     }
 
     const itemCart = {
-      tempId: Date.now(),
+      tempId: `${Date.now()}-${Math.random()}`,
       id: itemConfigurado.id,
       nombre: itemConfigurado.nombre,
       precio: itemConfigurado.precio,
@@ -115,7 +116,9 @@ const MenuCajera = () => {
       cargarDatos();
       if (window.innerWidth < 1024) setTabActiva('pedidos');
     } catch (error) {
-      alert(error.message);
+      alert('⚠️ ' + mensajeError(error, 'No se pudo confirmar el pedido'));
+      // El stock pudo cambiar (otra caja vendió): refrescar el catálogo
+      cargarDatos();
     } finally {
       setProcesando(false);
     }
@@ -380,6 +383,7 @@ const MenuCajera = () => {
       {/* MODAL PRODUCTO */}
       {productoSeleccionado && (
         <ModalProducto 
+          key={productoSeleccionado.id}
           producto={productoSeleccionado} 
           carrito={carrito} // <--- AGREGAR ESTA PROP
           onClose={() => setProductoSeleccionado(null)} 

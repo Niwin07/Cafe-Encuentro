@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import api from '../../services/api';
+import { useState, useEffect, useRef } from 'react';
+import api, { mensajeError } from '../../services/api';
 import './ListaPedidosActivos.css';
 
 const ListaPedidosActivos = () => {
@@ -7,11 +7,19 @@ const ListaPedidosActivos = () => {
   const [expandedId, setExpandedId] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Evita requests solapados si una respuesta tarda más que el intervalo
+  const cargandoRef = useRef(false);
+
   // Definida ANTES del useEffect que la referencia (evita temporal dead zone con const)
   const cargarPedidos = async () => {
+    if (cargandoRef.current) return;
+    cargandoRef.current = true;
     try {
-      const resCocina = await api.get('/pedidos/cocina/activos');
-      const resCafe = await api.get('/pedidos/cafeteria/activos');
+      // En paralelo (antes eran dos requests secuenciales cada 5 s)
+      const [resCocina, resCafe] = await Promise.all([
+        api.get('/pedidos/cocina/activos'),
+        api.get('/pedidos/cafeteria/activos'),
+      ]);
 
       const itemsCocina = resCocina.data.items || {};
       const itemsCafe = resCafe.data.items || {};
@@ -30,6 +38,8 @@ const ListaPedidosActivos = () => {
     } catch (_error) {
       console.error("Error cargando pedidos:", _error);
       setLoading(false);
+    } finally {
+      cargandoRef.current = false;
     }
   };
 
@@ -45,8 +55,8 @@ const ListaPedidosActivos = () => {
     try {
       await api.patch(`/pedidos/${pedidoId}/entregar`);
       cargarPedidos();
-    } catch (error) { 
-      alert(error.message); 
+    } catch (error) {
+      alert('⚠️ ' + mensajeError(error, 'No se pudo entregar el pedido'));
     }
   };
 
@@ -57,8 +67,8 @@ const ListaPedidosActivos = () => {
       await api.patch(`/pedidos/${pedidoId}/cancelar`);
       alert('Pedido cancelado correctamente');
       cargarPedidos();
-    } catch (error) { 
-      alert(error.message); 
+    } catch (error) {
+      alert('⚠️ ' + mensajeError(error, 'No se pudo cancelar el pedido'));
     }
   };
 
