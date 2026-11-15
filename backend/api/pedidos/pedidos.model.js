@@ -1,61 +1,19 @@
 const pool = require('../../conexion');
+const { normalizarFecha } = require('../utils/helpers');
+const { ESTADOS_ITEM_COCINA } = require('../utils/constants');
 
 /**
- * Crear un nuevo pedido (cabecera)
+ * Las escrituras de pedidos (crear, cancelar, entregar, eliminar, cambiar
+ * estado) viven en pedidos.controller dentro de transacciones (utils/db
+ * conTransaccion). Este modelo solo contiene lecturas.
  */
-const crear = async (pedido) => {
-  const query = `
-    INSERT INTO pedidos (id, cliente, cajera_id, total, notas, estado_general)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `;
-
-  const valores = [
-    pedido.id,
-    pedido.cliente,
-    pedido.cajera_id,
-    pedido.total || 0,
-    pedido.notas || null,
-    pedido.estado_general || 'Pendiente'
-  ];
-
-  await pool.query(query, valores);
-  return pedido.id;
-};
-
-/**
- * Crear un item del pedido
- */
-const crearItem = async (item) => {
-  const query = `
-    INSERT INTO pedidos_items (
-      pedido_id, producto_id, cantidad, precio_unitario, subtotal,
-      acompanamiento_id, instrucciones_especiales, estado, destino_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-
-  const valores = [
-    item.pedido_id,
-    item.producto_id,
-    item.cantidad,
-    item.precio_unitario,
-    item.subtotal,
-    item.acompanamiento_id || null,
-    item.instrucciones_especiales || null,
-    item.estado || 'Pendiente',
-    item.destino_id
-  ];
-
-  const [result] = await pool.query(query, valores);
-  return result.insertId;
-};
 
 /**
  * Obtener pedido por ID con todos sus items
  */
 const obtenerPorId = async (pedidoId) => {
-  // Obtener cabecera del pedido
   const queryPedido = `
-    SELECT 
+    SELECT
       p.id,
       p.cliente,
       p.cajera_id,
@@ -72,16 +30,13 @@ const obtenerPorId = async (pedidoId) => {
   `;
 
   const [pedidos] = await pool.query(queryPedido, [pedidoId]);
-  
+
   if (pedidos.length === 0) {
     return null;
   }
 
-  const pedido = pedidos[0];
-
-  // Obtener items del pedido
   const queryItems = `
-    SELECT 
+    SELECT
       pi.id,
       pi.pedido_id,
       pi.producto_id,
@@ -108,8 +63,50 @@ const obtenerPorId = async (pedidoId) => {
   const [items] = await pool.query(queryItems, [pedidoId]);
 
   return {
-    ...pedido,
+    ...pedidos[0],
     items
+  };
+};
+
+/**
+ * Construye el WHERE compartido por obtenerTodos y contarTodos.
+ * (Antes contarTodos no aplicaba el filtro `cliente` y el total no
+ * coincidía con las filas devueltas.)
+ */
+const construirFiltros = (filtros = {}) => {
+  const condiciones = [];
+  const valores = [];
+
+  if (filtros.estado_general) {
+    condiciones.push('p.estado_general = ?');
+    valores.push(filtros.estado_general);
+  }
+
+  if (filtros.cajera_id) {
+    condiciones.push('p.cajera_id = ?');
+    valores.push(filtros.cajera_id);
+  }
+
+  const desde = normalizarFecha(filtros.fecha_desde);
+  if (desde) {
+    condiciones.push('p.fecha_hora >= ?');
+    valores.push(desde);
+  }
+
+  const hasta = normalizarFecha(filtros.fecha_hasta);
+  if (hasta) {
+    condiciones.push('p.fecha_hora <= ?');
+    valores.push(hasta);
+  }
+
+  if (filtros.cliente) {
+    condiciones.push('p.cliente LIKE ?');
+    valores.push(`%${filtros.cliente}%`);
+  }
+
+  return {
+    where: condiciones.length > 0 ? ' WHERE ' + condiciones.join(' AND ') : '',
+    valores
   };
 };
 
@@ -117,8 +114,10 @@ const obtenerPorId = async (pedidoId) => {
  * Obtener todos los pedidos con filtros
  */
 const obtenerTodos = async (filtros = {}) => {
+  const { where, valores } = construirFiltros(filtros);
+
   let query = `
-    SELECT 
+    SELECT
       p.id,
       p.cliente,
       p.cajera_id,
@@ -130,56 +129,13 @@ const obtenerTodos = async (filtros = {}) => {
       p.created_at
     FROM pedidos p
     INNER JOIN cajeras c ON p.cajera_id = c.id
+    ${where}
+    ORDER BY p.fecha_hora DESC
   `;
 
-  const condiciones = [];
-  const valores = [];
-
-  // Filtrar por estado general
-  if (filtros.estado_general) {
-    condiciones.push('p.estado_general = ?');
-    valores.push(filtros.estado_general);
-  }
-
-  // Filtrar por cajera
-  if (filtros.cajera_id) {
-    condiciones.push('p.cajera_id = ?');
-    valores.push(filtros.cajera_id);
-  }
-
-  // Filtrar por fecha (desde)
-  if (filtros.fecha_desde) {
-    condiciones.push('p.fecha_hora >= ?');
-    valores.push(filtros.fecha_desde);
-  }
-
-  // Filtrar por fecha (hasta)
-  if (filtros.fecha_hasta) {
-    condiciones.push('p.fecha_hora <= ?');
-    valores.push(filtros.fecha_hasta);
-  }
-
-  // Filtrar por cliente
-  if (filtros.cliente) {
-    condiciones.push('p.cliente LIKE ?');
-    valores.push(`%${filtros.cliente}%`);
-  }
-
-  if (condiciones.length > 0) {
-    query += ' WHERE ' + condiciones.join(' AND ');
-  }
-
-  query += ' ORDER BY p.fecha_hora DESC';
-
-  // Paginación
   if (filtros.limite) {
-    query += ' LIMIT ?';
-    valores.push(parseInt(filtros.limite));
-
-    if (filtros.offset) {
-      query += ' OFFSET ?';
-      valores.push(parseInt(filtros.offset));
-    }
+    query += ' LIMIT ? OFFSET ?';
+    valores.push(parseInt(filtros.limite), parseInt(filtros.offset) || 0);
   }
 
   const [rows] = await pool.query(query, valores);
@@ -187,11 +143,20 @@ const obtenerTodos = async (filtros = {}) => {
 };
 
 /**
+ * Contar total de pedidos con los mismos filtros que obtenerTodos
+ */
+const contarTodos = async (filtros = {}) => {
+  const { where, valores } = construirFiltros(filtros);
+  const [rows] = await pool.query(`SELECT COUNT(*) as total FROM pedidos p ${where}`, valores);
+  return rows[0].total;
+};
+
+/**
  * Obtener items de pedidos por destino (Cocina o Cafetería)
  */
 const obtenerItemsPorDestino = async (destinoId, estados = []) => {
   let query = `
-    SELECT 
+    SELECT
       pi.id,
       pi.pedido_id,
       p.cliente,
@@ -223,11 +188,11 @@ const obtenerItemsPorDestino = async (destinoId, estados = []) => {
   const valores = [destinoId];
 
   if (estados.length > 0) {
-    query += ` AND pi.estado IN (${estados.map(() => '?').join(',')})`;
-    valores.push(...estados);
+    query += ' AND pi.estado IN (?)';
+    valores.push(estados);
   }
 
-  query += ' ORDER BY p.fecha_hora ASC, pi.id ASC'; 
+  query += ' ORDER BY p.fecha_hora ASC, pi.id ASC';
 
   const [rows] = await pool.query(query, valores);
   return rows;
@@ -237,64 +202,7 @@ const obtenerItemsPorDestino = async (destinoId, estados = []) => {
  * Obtener items activos por destino (Pendiente, En Preparación, Listo)
  */
 const obtenerItemsActivosPorDestino = async (destinoId) => {
-  return obtenerItemsPorDestino(destinoId, ['Pendiente', 'En Preparación', 'Listo']);
-};
-
-/**
- * Actualizar estado general del pedido
- */
-const actualizarEstadoGeneral = async (pedidoId, nuevoEstado) => {
-  const query = `
-    UPDATE pedidos
-    SET estado_general = ?
-    WHERE id = ?
-  `;
-
-  const [result] = await pool.query(query, [nuevoEstado, pedidoId]);
-  return result.affectedRows > 0;
-};
-
-/**
- * Actualizar estado de un item específico
- */
-const actualizarEstadoItem = async (itemId, nuevoEstado) => {
-  const query = `
-    UPDATE pedidos_items
-    SET estado = ?
-    WHERE id = ?
-  `;
-
-  const [result] = await pool.query(query, [nuevoEstado, itemId]);
-  return result.affectedRows > 0;
-};
-
-/**
- * Obtener todos los items de un pedido
- */
-const obtenerItemsPorPedidoId = async (pedidoId) => {
-  const query = `
-    SELECT 
-      id, pedido_id, producto_id, cantidad, estado, destino_id, subtotal
-    FROM pedidos_items
-    WHERE pedido_id = ?
-  `;
-
-  const [rows] = await pool.query(query, [pedidoId]);
-  return rows;
-};
-
-/**
- * Cancelar todos los items de un pedido
- */
-const cancelarItemsPorPedidoId = async (pedidoId) => {
-  const query = `
-    UPDATE pedidos_items
-    SET estado = 'Cancelado'
-    WHERE pedido_id = ? AND estado != 'Entregado' AND estado != 'Cancelado'
-  `;
-
-  const [result] = await pool.query(query, [pedidoId]);
-  return result.affectedRows;
+  return obtenerItemsPorDestino(destinoId, ESTADOS_ITEM_COCINA);
 };
 
 /**
@@ -302,7 +210,7 @@ const cancelarItemsPorPedidoId = async (pedidoId) => {
  */
 const obtenerItemPorId = async (itemId) => {
   const query = `
-    SELECT 
+    SELECT
       pi.id,
       pi.pedido_id,
       pi.producto_id,
@@ -319,95 +227,11 @@ const obtenerItemPorId = async (itemId) => {
   return rows[0];
 };
 
-/**
- * Verificar si un pedido existe
- */
-const existe = async (pedidoId) => {
-  const query = `SELECT id FROM pedidos WHERE id = ?`;
-  const [rows] = await pool.query(query, [pedidoId]);
-  return rows.length > 0;
-};
-
-/**
- * Contar total de pedidos con filtros
- */
-const contarTodos = async (filtros = {}) => {
-  let query = `
-    SELECT COUNT(*) as total
-    FROM pedidos p
-  `;
-
-  const condiciones = [];
-  const valores = [];
-
-  if (filtros.estado_general) {
-    condiciones.push('p.estado_general = ?');
-    valores.push(filtros.estado_general);
-  }
-
-  if (filtros.cajera_id) {
-    condiciones.push('p.cajera_id = ?');
-    valores.push(filtros.cajera_id);
-  }
-
-  if (filtros.fecha_desde) {
-    condiciones.push('p.fecha_hora >= ?');
-    valores.push(filtros.fecha_desde);
-  }
-
-  if (filtros.fecha_hasta) {
-    condiciones.push('p.fecha_hora <= ?');
-    valores.push(filtros.fecha_hasta);
-  }
-
-  if (condiciones.length > 0) {
-    query += ' WHERE ' + condiciones.join(' AND ');
-  }
-
-  const [rows] = await pool.query(query, valores);
-  return rows[0].total;
-};
-
-/**
- * Actualizar total del pedido
- */
-const actualizarTotal = async (pedidoId, nuevoTotal) => {
-  const query = `
-    UPDATE pedidos
-    SET total = ?
-    WHERE id = ?
-  `;
-
-  const [result] = await pool.query(query, [nuevoTotal, pedidoId]);
-  return result.affectedRows > 0;
-};
-
-const eliminar = async (pedidoId) => {
-  // Primero eliminamos los items asociados
-  const queryItems = `DELETE FROM pedidos_items WHERE pedido_id = ?`;
-  await pool.query(queryItems, [pedidoId]);
-
-  // Luego eliminamos la cabecera del pedido
-  const queryPedido = `DELETE FROM pedidos WHERE id = ?`;
-  const [result] = await pool.query(queryPedido, [pedidoId]);
-  
-  return result.affectedRows > 0;
-};
-
 module.exports = {
-  crear,
-  crearItem,
   obtenerPorId,
   obtenerTodos,
+  contarTodos,
   obtenerItemsPorDestino,
   obtenerItemsActivosPorDestino,
-  actualizarEstadoGeneral,
-  actualizarEstadoItem,
-  obtenerItemsPorPedidoId,
-  cancelarItemsPorPedidoId,
-  obtenerItemPorId,
-  existe,
-  contarTodos,
-  actualizarTotal,
-  eliminar
+  obtenerItemPorId
 };

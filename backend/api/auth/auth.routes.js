@@ -4,15 +4,19 @@ const authController = require('./auth.controller');
 const { verificarToken } = require('../middleware/auth');
 const { validarCamposRequeridos } = require('../middleware/validator');
 
-// Rutas públicas
+// Ruta pública
 router.post(
   '/login',
   validarCamposRequeridos(['usuario', 'password']),
   authController.login
 );
 
+// Alta de cajeras: SOLO desde el panel de administración (requiere sesión).
+// Antes era pública: cualquiera podía crearse un usuario y obtener un token
+// con acceso total (borrar pedidos, cambiar precios/stock, etc.).
 router.post(
   '/registro',
+  verificarToken,
   validarCamposRequeridos(['nombre', 'usuario', 'password']),
   authController.registro
 );

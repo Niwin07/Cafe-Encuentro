@@ -1,11 +1,15 @@
 const { ESTADOS_PEDIDO_ITEM, ESTADOS_PEDIDO_GENERAL } = require('./constants');
 
 /**
- * Genera un ID único para un pedido
- * Formato: P + timestamp
+ * Genera un ID para un pedido. Formato: P + timestamp (ms).
+ * Es monotónico dentro de la instancia: dos pedidos en el mismo milisegundo
+ * ya no reciben el mismo ID. Entre instancias serverless distintas la
+ * colisión se resuelve reintentando el INSERT (ver pedidos.controller crear).
  */
+let ultimoTimestampPedido = 0;
 const generarIdPedido = () => {
-  return 'P' + Date.now();
+  ultimoTimestampPedido = Math.max(Date.now(), ultimoTimestampPedido + 1);
+  return 'P' + ultimoTimestampPedido;
 };
 
 /**
@@ -227,17 +231,19 @@ const esFechaValida = (fecha) => {
 };
 
 /**
- * Genera un hash simple para passwords (SOLO PARA DESARROLLO)
- * En producción usar bcrypt
+ * Convierte un filtro de fecha recibido por query string en un Date para
+ * pasarlo como parámetro a mysql2.
+ * - ISO con zona ("2026-11-15T03:00:00.000Z"): instante exacto. Es lo que
+ *   envía el frontend para que "el día" sea el día local del usuario
+ *   (Argentina, UTC-3) y no el día UTC.
+ * - "YYYY-MM-DD HH:mm:ss" sin zona: se interpreta en la zona del proceso
+ *   (igual que antes), por compatibilidad.
+ * Devuelve undefined si no hay valor o es inválido (el filtro se ignora).
  */
-const hashSimple = (texto) => {
-  let hash = 0;
-  for (let i = 0; i < texto.length; i++) {
-    const char = texto.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return hash.toString();
+const normalizarFecha = (valor) => {
+  if (!valor || typeof valor !== 'string') return undefined;
+  const fecha = new Date(valor.includes('T') ? valor : valor.replace(' ', 'T'));
+  return isNaN(fecha) ? undefined : fecha;
 };
 
 module.exports = {
@@ -254,5 +260,5 @@ module.exports = {
   crearQueryString,
   agruparPor,
   esFechaValida,
-  hashSimple
+  normalizarFecha
 };

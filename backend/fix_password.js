@@ -1,39 +1,45 @@
 // backend/fix_password.js
+// Restablece (o crea) la contraseña del usuario "admin".
+//
+// Uso:  node fix_password.js "<contraseña-nueva>"
+//   o:  ADMIN_PASSWORD="<contraseña-nueva>" node fix_password.js
+//
+// Antes la contraseña ('123456') estaba escrita en este archivo y commiteada
+// en el repositorio: cualquiera con acceso al código conocía la clave de admin.
 const bcrypt = require('bcrypt');
-const pool = require('./conexion'); // Tu conexión a MySQL
+const pool = require('./conexion');
 
 async function arreglarAdmin() {
+  const passwordPlano = process.argv[2] || process.env.ADMIN_PASSWORD;
+
+  if (!passwordPlano || passwordPlano.length < 8) {
+    console.error('❌ Indicá una contraseña de al menos 8 caracteres: node fix_password.js "<contraseña>"');
+    process.exit(1);
+  }
+
   try {
-    const passwordPlano = '123456';
-    console.log('🔒 Generando hash para:', passwordPlano);
-
-    // 1. Generar el hash real usando tu librería instalada
     const hashReal = await bcrypt.hash(passwordPlano, 10);
-    console.log('🔑 Nuevo Hash generado:', hashReal);
 
-    // 2. Actualizar el usuario 'admin' en la base de datos
     const [result] = await pool.query(
       'UPDATE cajeras SET password_hash = ? WHERE usuario = ?',
       [hashReal, 'admin']
     );
 
     if (result.affectedRows > 0) {
-      console.log('✅ ¡Éxito! La contraseña de "admin" ha sido actualizada.');
+      console.log('✅ La contraseña de "admin" fue actualizada.');
     } else {
-      console.log('❌ Error: No se encontró el usuario "admin". ¿Corriste el SQL inicial?');
-      // Si no existe, lo creamos
-      console.log('🛠️ Intentando crear el usuario admin...');
+      console.log('🛠️ No existía el usuario "admin": se crea.');
       await pool.query(
         'INSERT INTO cajeras (nombre, usuario, password_hash) VALUES (?, ?, ?)',
         ['Admin', 'admin', hashReal]
       );
-      console.log('✅ Usuario Admin creado exitosamente.');
+      console.log('✅ Usuario admin creado.');
     }
-
   } catch (error) {
-    console.error('❌ Ocurrió un error:', error);
+    console.error('❌ Ocurrió un error:', error.message);
+    process.exitCode = 1;
   } finally {
-    process.exit();
+    await pool.end();
   }
 }
 

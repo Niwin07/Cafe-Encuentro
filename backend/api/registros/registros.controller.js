@@ -1,15 +1,63 @@
 const registrosModel = require('./registros.model');
-const pool = require('../../conexion');
+const { obtenerIdDestinoPorNombre } = require('../utils/db');
+const { normalizarFecha } = require('../utils/helpers');
 
+/**
+ * Agrupa las filas (una por item) en pedidos con su lista de items.
+ * Antes este bloque estaba copiado en Cocina y Cafetería.
+ */
+const agruparRegistrosPorPedido = (registros) => {
+  const pedidosAgrupados = new Map();
 
-// --- NUEVA FUNCIÓN HELPER ---
-const obtenerIdDestino = async (nombre) => {
-  try {
-    const [rows] = await pool.query('SELECT id FROM destinos WHERE nombre LIKE ? LIMIT 1', [`%${nombre}%`]);
-    return rows.length > 0 ? rows[0].id : (nombre === 'Cocina' ? 1 : 2);
-  } catch (error) { return 1; }
+  registros.forEach(item => {
+    if (!pedidosAgrupados.has(item.pedido_id)) {
+      pedidosAgrupados.set(item.pedido_id, {
+        pedido_id: item.pedido_id,
+        cliente: item.cliente,
+        cajera_id: item.cajera_id,
+        cajera_nombre: item.cajera_nombre,
+        fecha_hora: item.fecha_hora,
+        estado_general: item.estado_general,
+        total_pedido: item.total_pedido,
+        notas_pedido: item.notas_pedido,
+        items: []
+      });
+    }
+
+    pedidosAgrupados.get(item.pedido_id).items.push({
+      id: item.item_id,
+      producto_id: item.producto_id,
+      producto_nombre: item.producto_nombre,
+      cantidad: item.cantidad,
+      precio_unitario: item.precio_unitario,
+      subtotal: item.subtotal,
+      estado: item.estado,
+      acompanamiento_nombre: item.acompanamiento_nombre,
+      instrucciones_especiales: item.instrucciones_especiales
+    });
+  });
+
+  return [...pedidosAgrupados.values()];
 };
 
+const responderRegistrosDestino = async (req, res, nombreDestino, etiqueta) => {
+  const filtros = {
+    fecha_desde: req.query.fecha_desde,
+    fecha_hasta: req.query.fecha_hasta,
+    cajera_id: req.query.cajera_id,
+    estado: req.query.estado
+  };
+
+  const destinoId = await obtenerIdDestinoPorNombre(nombreDestino);
+  const registros = await registrosModel.obtenerPorDestino(destinoId, filtros);
+  const pedidosArray = agruparRegistrosPorPedido(registros);
+
+  res.json({
+    total: pedidosArray.length,
+    destino: etiqueta,
+    registros: pedidosArray
+  });
+};
 
 /**
  * Obtener registros de Cocina
@@ -17,56 +65,7 @@ const obtenerIdDestino = async (nombre) => {
  */
 const obtenerRegistrosCocina = async (req, res, next) => {
   try {
-    const filtros = {
-      fecha_desde: req.query.fecha_desde,
-      fecha_hasta: req.query.fecha_hasta,
-      cajera_id: req.query.cajera_id,
-      estado: req.query.estado
-    };
-
-    // MODIFICADO: Obtenemos ID dinámico
-    const destinoId = await obtenerIdDestino('Cocina');
-    const registros = await registrosModel.obtenerPorDestino(destinoId, filtros);
-
-    // Agrupar por pedido
-    const pedidosAgrupados = {};
-    
-    registros.forEach(item => {
-      if (!pedidosAgrupados[item.pedido_id]) {
-        pedidosAgrupados[item.pedido_id] = {
-          pedido_id: item.pedido_id,
-          cliente: item.cliente,
-          cajera_id: item.cajera_id,
-          cajera_nombre: item.cajera_nombre,
-          fecha_hora: item.fecha_hora,
-          estado_general: item.estado_general,
-          total_pedido: item.total_pedido,
-          notas_pedido: item.notas_pedido,
-          items: []
-        };
-      }
-      
-      pedidosAgrupados[item.pedido_id].items.push({
-        id: item.item_id,
-        producto_id: item.producto_id,
-        producto_nombre: item.producto_nombre,
-        cantidad: item.cantidad,
-        precio_unitario: item.precio_unitario,
-        subtotal: item.subtotal,
-        estado: item.estado,
-        acompanamiento_nombre: item.acompanamiento_nombre,
-        instrucciones_especiales: item.instrucciones_especiales
-      });
-    });
-
-    const pedidosArray = Object.values(pedidosAgrupados);
-
-    res.json({
-      total: pedidosArray.length,
-      destino: 'Cocina',
-      registros: pedidosArray
-    });
-
+    await responderRegistrosDestino(req, res, 'Cocina', 'Cocina');
   } catch (error) {
     next(error);
   }
@@ -78,56 +77,7 @@ const obtenerRegistrosCocina = async (req, res, next) => {
  */
 const obtenerRegistrosCafeteria = async (req, res, next) => {
   try {
-    const filtros = {
-      fecha_desde: req.query.fecha_desde,
-      fecha_hasta: req.query.fecha_hasta,
-      cajera_id: req.query.cajera_id,
-      estado: req.query.estado
-    };
-
-    // MODIFICADO: Obtenemos ID dinámico
-    const destinoId = await obtenerIdDestino('Cafeteria');
-    const registros = await registrosModel.obtenerPorDestino(destinoId, filtros);
-
-    // Agrupar por pedido
-    const pedidosAgrupados = {};
-    
-    registros.forEach(item => {
-      if (!pedidosAgrupados[item.pedido_id]) {
-        pedidosAgrupados[item.pedido_id] = {
-          pedido_id: item.pedido_id,
-          cliente: item.cliente,
-          cajera_id: item.cajera_id,
-          cajera_nombre: item.cajera_nombre,
-          fecha_hora: item.fecha_hora,
-          estado_general: item.estado_general,
-          total_pedido: item.total_pedido,
-          notas_pedido: item.notas_pedido,
-          items: []
-        };
-      }
-      
-      pedidosAgrupados[item.pedido_id].items.push({
-        id: item.item_id,
-        producto_id: item.producto_id,
-        producto_nombre: item.producto_nombre,
-        cantidad: item.cantidad,
-        precio_unitario: item.precio_unitario,
-        subtotal: item.subtotal,
-        estado: item.estado,
-        acompanamiento_nombre: item.acompanamiento_nombre,
-        instrucciones_especiales: item.instrucciones_especiales
-      });
-    });
-
-    const pedidosArray = Object.values(pedidosAgrupados);
-
-    res.json({
-      total: pedidosArray.length,
-      destino: 'Cafetería',
-      registros: pedidosArray
-    });
-
+    await responderRegistrosDestino(req, res, 'Cafeteria', 'Cafetería');
   } catch (error) {
     next(error);
   }
@@ -165,10 +115,10 @@ const obtenerCierreCaja = async (req, res, next) => {
   try {
     const { fecha_desde, fecha_hasta } = req.query;
 
-    if (!fecha_desde || !fecha_hasta) {
+    if (!normalizarFecha(fecha_desde) || !normalizarFecha(fecha_hasta)) {
       return res.status(400).json({
         error: 'Parámetros requeridos',
-        mensaje: 'Se requieren fecha_desde y fecha_hasta'
+        mensaje: 'Se requieren fecha_desde y fecha_hasta válidas'
       });
     }
 

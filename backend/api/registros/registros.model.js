@@ -1,4 +1,5 @@
 const pool = require('../../conexion');
+const { normalizarFecha } = require('../utils/helpers');
 
 /**
  * Obtener registros de pedidos por destino con filtros
@@ -42,14 +43,16 @@ const obtenerPorDestino = async (destinoId, filtros = {}) => {
   const valores = [destinoId];
 
   // Filtros opcionales
-  if (filtros.fecha_desde) {
+  const desde = normalizarFecha(filtros.fecha_desde);
+  if (desde) {
     query += ' AND p.fecha_hora >= ?';
-    valores.push(filtros.fecha_desde);
+    valores.push(desde);
   }
 
-  if (filtros.fecha_hasta) {
+  const hasta = normalizarFecha(filtros.fecha_hasta);
+  if (hasta) {
     query += ' AND p.fecha_hora <= ?';
-    valores.push(filtros.fecha_hasta);
+    valores.push(hasta);
   }
 
   if (filtros.cajera_id) {
@@ -72,39 +75,37 @@ const obtenerPorDestino = async (destinoId, filtros = {}) => {
  * Obtener resumen de registros por cajera
  */
 const obtenerResumenPorCajera = async (filtros = {}) => {
-  let query = `
+  // Los filtros de fecha van en el ON (no en el WHERE): así el LEFT JOIN
+  // conserva las cajeras sin pedidos en el período (con totales en 0).
+  const condicionesJoin = ['c.id = p.cajera_id'];
+  const valores = [];
+
+  const desde = normalizarFecha(filtros.fecha_desde);
+  if (desde) {
+    condicionesJoin.push('p.fecha_hora >= ?');
+    valores.push(desde);
+  }
+
+  const hasta = normalizarFecha(filtros.fecha_hasta);
+  if (hasta) {
+    condicionesJoin.push('p.fecha_hora <= ?');
+    valores.push(hasta);
+  }
+
+  const query = `
     SELECT 
       c.id as cajera_id,
       c.nombre as cajera_nombre,
       COUNT(DISTINCT p.id) as total_pedidos,
-      SUM(p.total) as monto_total,
+      COALESCE(SUM(p.total), 0) as monto_total,
       COUNT(CASE WHEN p.estado_general = 'Completado' THEN 1 END) as pedidos_completados,
       COUNT(CASE WHEN p.estado_general = 'Cancelado' THEN 1 END) as pedidos_cancelados,
       COUNT(CASE WHEN p.estado_general = 'Pendiente' THEN 1 END) as pedidos_pendientes
-      
     FROM cajeras c
-    LEFT JOIN pedidos p ON c.id = p.cajera_id
+    LEFT JOIN pedidos p ON ${condicionesJoin.join(' AND ')}
+    GROUP BY c.id, c.nombre
+    ORDER BY monto_total DESC
   `;
-
-  const condiciones = [];
-  const valores = [];
-
-  if (filtros.fecha_desde) {
-    condiciones.push('p.fecha_hora >= ?');
-    valores.push(filtros.fecha_desde);
-  }
-
-  if (filtros.fecha_hasta) {
-    condiciones.push('p.fecha_hora <= ?');
-    valores.push(filtros.fecha_hasta);
-  }
-
-  if (condiciones.length > 0) {
-    query += ' WHERE ' + condiciones.join(' AND ');
-  }
-
-  query += ' GROUP BY c.id, c.nombre';
-  query += ' ORDER BY monto_total DESC';
 
   const [rows] = await pool.query(query, valores);
   return rows;
@@ -133,14 +134,16 @@ const obtenerResumenGeneral = async (filtros = {}) => {
   const condiciones = [];
   const valores = [];
 
-  if (filtros.fecha_desde) {
+  const desde = normalizarFecha(filtros.fecha_desde);
+  if (desde) {
     condiciones.push('p.fecha_hora >= ?');
-    valores.push(filtros.fecha_desde);
+    valores.push(desde);
   }
 
-  if (filtros.fecha_hasta) {
+  const hasta = normalizarFecha(filtros.fecha_hasta);
+  if (hasta) {
     condiciones.push('p.fecha_hora <= ?');
-    valores.push(filtros.fecha_hasta);
+    valores.push(hasta);
   }
 
   if (condiciones.length > 0) {
@@ -165,7 +168,7 @@ const obtenerParaCierreCaja = async (fecha_desde, fecha_hasta) => {
       p.estado_general,
       p.total,
       
-      d.nombre as destino_nombre,
+      GROUP_CONCAT(DISTINCT d.nombre ORDER BY d.nombre SEPARATOR ', ') as destino_nombre,
       
       COUNT(pi.id) as total_items
       
@@ -176,11 +179,11 @@ const obtenerParaCierreCaja = async (fecha_desde, fecha_hasta) => {
     
     WHERE p.fecha_hora >= ? AND p.fecha_hora <= ?
     
-    GROUP BY p.id, p.cliente, p.cajera_id, c.nombre, p.fecha_hora, p.estado_general, p.total, d.nombre
+    GROUP BY p.id, p.cliente, p.cajera_id, c.nombre, p.fecha_hora, p.estado_general, p.total
     ORDER BY p.fecha_hora DESC
   `;
 
-  const [rows] = await pool.query(query, [fecha_desde, fecha_hasta]);
+  const [rows] = await pool.query(query, [normalizarFecha(fecha_desde), normalizarFecha(fecha_hasta)]);
   return rows;
 };
 

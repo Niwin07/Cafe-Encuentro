@@ -1,4 +1,5 @@
 const destinosModel = require('./destinos.model');
+const { MENSAJES_ERROR } = require('../utils/constants');
 
 const obtenerTodos = async (req, res, next) => {
   try {
@@ -19,32 +20,34 @@ const crear = async (req, res, next) => {
   }
 };
 
-// AGREGAR ESTA FUNCIÓN DE ACTUALIZAR
 const actualizar = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    await destinosModel.actualizar(id, req.body);
+    const exito = await destinosModel.actualizar(req.params.id, req.body);
+    if (!exito) {
+      return res.status(404).json({ error: MENSAJES_ERROR.DESTINO_NO_ENCONTRADO, mensaje: MENSAJES_ERROR.DESTINO_NO_ENCONTRADO });
+    }
     res.json({ mensaje: 'Actualizado correctamente' });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 };
 
 const eliminar = async (req, res, next) => {
   try {
     const { id } = req.params;
-    
-    // Si mandamos ?fisico=true en la URL, borra de verdad
-    if (req.query.fisico === 'true') {
-      await destinosModel.eliminarPermanente(id);
-      return res.json({ mensaje: 'Destino eliminado DEFINITIVAMENTE' });
-    }
 
-    // Si no, borrado lógico (soft)
-    await destinosModel.eliminar(id);
-    res.json({ mensaje: 'Destino desactivado' });
+    // ?fisico=true borra de verdad (falla por FK si hay productos/pedidos que lo usan)
+    const exito = req.query.fisico === 'true'
+      ? await destinosModel.eliminarPermanente(id)
+      : await destinosModel.eliminar(id);
+
+    if (!exito) {
+      return res.status(404).json({ error: MENSAJES_ERROR.DESTINO_NO_ENCONTRADO, mensaje: MENSAJES_ERROR.DESTINO_NO_ENCONTRADO });
+    }
+    res.json({ mensaje: req.query.fisico === 'true' ? 'Destino eliminado DEFINITIVAMENTE' : 'Destino desactivado' });
   } catch (error) {
     next(error);
   }
 };
-// Agrégala al export
 
 module.exports = { obtenerTodos, crear, actualizar, eliminar };

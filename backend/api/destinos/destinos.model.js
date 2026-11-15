@@ -1,8 +1,8 @@
 const pool = require('../../conexion');
 
-// 1. CAMBIAR ESTO (Quitamos "WHERE activo = 1")
+// Trae activos e inactivos (el panel de admin permite reactivar)
 const obtenerTodos = async () => {
-  const [rows] = await pool.query('SELECT * FROM destinos'); // <--- Trae todo
+  const [rows] = await pool.query('SELECT * FROM destinos');
   return rows;
 };
 
@@ -12,22 +12,32 @@ const crear = async (nombre, descripcion) => {
     VALUES (?, ?, 1)
   `;
 
-  const [result] = await pool.query(query, [nombre, descripcion]);
+  const [result] = await pool.query(query, [nombre, descripcion || null]);
   return result.insertId;
 };
 
+// Solo estas columnas pueden actualizarse. Antes se interpolaban las claves
+// de req.body directamente en el SQL (`${key} = ?`), lo que permitía
+// inyección SQL a través del nombre del campo.
+const CAMPOS_ACTUALIZABLES = ['nombre', 'descripcion', 'activo'];
 
-// 2. AGREGAR ESTO (Actualizar para poder reactivar)
 const actualizar = async (id, datos) => {
-  const campos = Object.keys(datos).map(key => `${key} = ?`).join(', ');
-  const valores = [...Object.values(datos), id];
-  const [result] = await pool.query(`UPDATE destinos SET ${campos} WHERE id = ?`, valores);
+  const campos = Object.keys(datos).filter(key => CAMPOS_ACTUALIZABLES.includes(key));
+  if (campos.length === 0) return false;
+
+  const set = campos.map(key => `${key} = ?`).join(', ');
+  const valores = [...campos.map(key => datos[key]), id];
+  const [result] = await pool.query(`UPDATE destinos SET ${set} WHERE id = ?`, valores);
   return result.affectedRows > 0;
 };
 
-const eliminar = async (id) => { /* ... igual (soft delete) ... */ };
+// Borrado lógico. Antes era un stub vacío: respondía "Destino desactivado"
+// pero no hacía nada.
+const eliminar = async (id) => {
+  const [result] = await pool.query('UPDATE destinos SET activo = 0 WHERE id = ?', [id]);
+  return result.affectedRows > 0;
+};
 
-// 3. AGREGAR ESTO (Borrado real)
 const eliminarPermanente = async (id) => {
   const [result] = await pool.query('DELETE FROM destinos WHERE id = ?', [id]);
   return result.affectedRows > 0;
