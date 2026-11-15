@@ -41,9 +41,9 @@ Domains: `auth`, `productos`, `pedidos`, `categorias`, `destinos`, `acompanamien
 
 Key cross-cutting pieces:
 - `backend/conexion.js` — PostgreSQL pool (`pg`, SSL, max 3 for serverless) wrapped in a mysql2-compatible API: `pool.query()` returns `[rows]` / `[{insertId, affectedRows}]`, `?` → `$n`, `getConnection()` for transactions, PG error codes mapped to `ER_*`. On first use per instance it runs `backend/sql/schema.js` (idempotent `CREATE TABLE IF NOT EXISTS` + seed of destinos Cocina=1/Cafeteria=2 and an `admin` user when tables are empty). Write Postgres SQL (`ILIKE`, `TRUE/FALSE` for `activo`, `FOR UPDATE OF <alias>` with outer joins). `npm run db:init` applies the schema manually.
-- `backend/api/middleware/auth.js` — JWT verification; attaches `req.cajera` to authenticated requests. Most routes use `verificarToken`; kitchen/cafeteria views use `verificarTokenOpcional` or no auth.
-- `backend/api/middleware/validator.js` — global `sanitizar` middleware applied to all requests.
-- `backend/api/utils/constants.js` — canonical state strings (`Pendiente`, `En Preparación`, `Listo`, `Entregado`, `Cancelado`) and domain enums used by both models and controllers.
+- `backend/api/middleware/auth.js` — JWT verification; attaches `req.cajera` to authenticated requests. Most routes use `verificarToken`; kitchen/cafeteria item-state changes use no auth.
+- `backend/api/middleware/validator.js` — global `sanitizar` middleware + `validarCamposRequeridos` / `validarEnum` helpers used in routes.
+- `backend/api/utils/constants.js` — canonical state strings (`Pendiente`, `En Preparación`, `Listo`, `Entregado`, `Cancelado`) and domain enums. Always import from here rather than hardcoding strings.
 
 ### Database keep-alive
 Aiven powers off idle free-tier services. `GET /api/keepalive` (`backend/api/keepalive/`) upserts a row in the `keepalive` table. It is called daily by a Vercel Cron Job (`crons` in `frontend/vercel.json`) and every 6h by `.github/workflows/keepalive.yml` (needs repo variable `KEEPALIVE_URL`). If `CRON_SECRET` is set, the endpoint requires `Authorization: Bearer <CRON_SECRET>`.
@@ -53,22 +53,41 @@ Aiven powers off idle free-tier services. `GET /api/keepalive` (`backend/api/kee
 1. Translates the product name/description Spanish → English via MyMemory API.
 2. Appends a fixed photography style prompt.
 3. Calls Hugging Face Inference API (`stabilityai/stable-diffusion-3-medium-diffusers`) — requires `HF_TOKEN`.
-4. Uploads the resulting JPEG buffer to Cloudinary (`cafe-encuentro/productos/producto_<id>`) — requires `CLOUDINARY_URL`.
+4. Uploads the resulting JPEG buffer to Cloudinary (`cafe-encuentro/productos/producto_<id>`) with `overwrite: true, invalidate: true` — requires `CLOUDINARY_URL`. The `invalidate` flag is essential: without it the CDN serves the old image after a regeneration.
 
 ### Frontend structure
-Single-page app using **wouter** for routing and `AuthContext` for JWT state (stored in `localStorage`). Tailwind CSS + custom `.css` files per page.
+Single-page app using **wouter** for routing and `AuthContext` for JWT state (stored in `localStorage`). Styled exclusively with **Tailwind CSS** — no per-page CSS files.
 
 Route → component map:
 | Path | Component | Auth required |
 |------|-----------|---------------|
 | `/` | `VistaMozos` | No |
-| `/pedidos` | `MenuCajera` | Yes (redirects to `/login`) |
+| `/login` | `Login` | No |
 | `/cocina` | `VistaCocina` | No |
 | `/cafeteria` | `VistaCafeteria` | No |
+| `/pedidos` | `MenuCajera` | Yes |
 | `/admin` | `AdminPanel` | Yes |
-| `/registros` | `Registros` | No |
+| `/registros` | `Registros` | Yes |
 
 Kitchen (`VistaCocina`) and cafeteria bar (`VistaCafeteria`) poll for active items by destination ID. `VistaMozos` displays active orders across all destinations.
+
+### UI component system (`frontend/src/components/ui/`)
+All new UI must use these components instead of raw HTML elements:
+
+- **`Button`** — variants: `primary` | `secondary` | `outline` | `ghost` | `danger` | `success`. Props: `icon`, `iconRight`, `loading`, `fullWidth`, `size` (`sm`/`md`/`lg`). All components use `forwardRef`.
+- **`Modal`** — bottom sheet on mobile, centered dialog on desktop. Props: `open`, `onClose`, `title`, `description`, `footer`, `size` (`sm`/`md`/`lg`/`xl`). Escape key and overlay click close it automatically. Mount with `key={item.id}` on the parent to reset internal form state when the target changes.
+- **`Input` / `Select` / `Textarea`** — all accept `label`, `error`, and `ref` via `forwardRef`.
+- **`Toast` / `useToast()`** — never use `alert()` or `confirm()`. Use `toast.success()`, `toast.error()`, `toast.warning()`, `toast.info()`. For destructive confirmations: `const ok = await toast.confirm('message', { danger: true })`.
+- **`Skeleton` / `SkeletonGrid`** — use during data loading instead of spinners where layout permits.
+
+### Tailwind design tokens
+Custom palette defined in `frontend/tailwind.config.js`:
+- **`coffee-*`** — primary brand color (dark browns). Use for text, headers, backgrounds.
+- **`cream-*`** — warm off-whites. Use for page backgrounds and card fills.
+- **`gold-*`** — accent color for badges and highlights.
+- **`success` / `warning` / `danger` / `info`** — semantic colors (50/100/500/600/700 shades).
+- Custom shadows: `shadow-soft`, `shadow-card`, `shadow-elevated`, `shadow-floating`.
+- Custom animations: `animate-fadeIn`, `animate-slideUp`, `animate-slideDown`, `animate-scaleIn`, `animate-sheetUp`, `animate-shimmer`.
 
 ## Environment variables
 

@@ -18,4 +18,26 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Si el backend rechaza el token (expirado/inválido) en cualquier llamada
+// autenticada, limpiamos la sesión y volvemos al login. El intento de login
+// en sí puede devolver 401 por credenciales incorrectas: eso no es una
+// sesión vencida, así que se excluye explícitamente.
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response?.status;
+    const isLoginRequest = error.config?.url?.includes('/auth/login');
+
+    if (status === 401 && !isLoginRequest && localStorage.getItem('token')) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('usuario');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 export default api;

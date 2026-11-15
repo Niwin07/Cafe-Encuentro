@@ -85,7 +85,7 @@ const generarYGuardarImagen = async ({ productoId, nombre, descripcion }) => {
     folder: 'cafe-encuentro/productos',
     public_id: `producto_${productoId}`,
     overwrite: true,
-    invalidate: true   // purga la caché del CDN de Cloudinary al sobreescribir
+    invalidate: true
   });
 
   return resultado.secure_url;
