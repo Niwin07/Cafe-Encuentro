@@ -16,7 +16,7 @@ const {
 // --- HELPER INTERNO ---
 const obtenerIdDestinoPorNombre = async (nombre) => {
   try {
-    const [rows] = await pool.query('SELECT id FROM destinos WHERE nombre LIKE ? LIMIT 1', [`%${nombre}%`]);
+    const [rows] = await pool.query('SELECT id FROM destinos WHERE nombre ILIKE ? LIMIT 1', [`%${nombre}%`]);
     if (rows.length > 0) return rows[0].id;
     return nombre === 'Cocina' ? 1 : 2; 
   } catch (error) {
@@ -73,7 +73,7 @@ const crear = async (req, res, next) => {
             SELECT a.*, p.stock as stock_producto, p.nombre as nombre_prod_vinc
             FROM acompanamientos a
             LEFT JOIN productos p ON a.producto_vinculado_id = p.id
-            WHERE a.id = ? FOR UPDATE`, [acompId]);
+            WHERE a.id = ? FOR UPDATE OF a`, [acompId]);
         
         const acomp = acompRows[0];
 

@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "db:init": "node scripts/init-db.js"
   },
   "keywords": [],
   "author": "",
@@ -19,8 +20,8 @@
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "mysql2": "^3.15.3",
-    "path": "^0.12.7"
+    "path": "^0.12.7",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.11"

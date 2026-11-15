@@ -35,15 +35,18 @@ Vercel is configured from `frontend/vercel.json`. The trick that makes this work
 - In development, `frontend/src/services/api.js` points axios at `http://localhost:5000/api`; in production it uses the relative `/api` path (no CORS needed).
 
 ### Backend structure
-Each domain lives in `backend/api/<domain>/` with three files: `*.model.js` (SQL via `mysql2/promise`), `*.controller.js` (request/response logic), `*.routes.js` (Express router). All routes are assembled in `backend/api/main.js` and mounted under `/api` in `backend/index.js`.
+Each domain lives in `backend/api/<domain>/` with three files: `*.model.js` (SQL with `?` placeholders through the mysql2-style wrapper in `conexion.js`), `*.controller.js` (request/response logic), `*.routes.js` (Express router). All routes are assembled in `backend/api/main.js` and mounted under `/api` in `backend/index.js`.
 
 Domains: `auth`, `productos`, `pedidos`, `categorias`, `destinos`, `acompanamientos`, `registros`.
 
 Key cross-cutting pieces:
-- `backend/conexion.js` — shared MySQL connection pool (SSL enabled, limit 3 for serverless compatibility).
+- `backend/conexion.js` — PostgreSQL pool (`pg`, SSL, max 3 for serverless) wrapped in a mysql2-compatible API: `pool.query()` returns `[rows]` / `[{insertId, affectedRows}]`, `?` → `$n`, `getConnection()` for transactions, PG error codes mapped to `ER_*`. On first use per instance it runs `backend/sql/schema.js` (idempotent `CREATE TABLE IF NOT EXISTS` + seed of destinos Cocina=1/Cafeteria=2 and an `admin` user when tables are empty). Write Postgres SQL (`ILIKE`, `TRUE/FALSE` for `activo`, `FOR UPDATE OF <alias>` with outer joins). `npm run db:init` applies the schema manually.
 - `backend/api/middleware/auth.js` — JWT verification; attaches `req.cajera` to authenticated requests. Most routes use `verificarToken`; kitchen/cafeteria item-state changes use no auth.
 - `backend/api/middleware/validator.js` — global `sanitizar` middleware + `validarCamposRequeridos` / `validarEnum` helpers used in routes.
 - `backend/api/utils/constants.js` — canonical state strings (`Pendiente`, `En Preparación`, `Listo`, `Entregado`, `Cancelado`) and domain enums. Always import from here rather than hardcoding strings.
+
+### Database keep-alive
+Aiven powers off idle free-tier services. `GET /api/keepalive` (`backend/api/keepalive/`) upserts a row in the `keepalive` table. It is called daily by a Vercel Cron Job (`crons` in `frontend/vercel.json`) and every 6h by `.github/workflows/keepalive.yml` (needs repo variable `KEEPALIVE_URL`). If `CRON_SECRET` is set, the endpoint requires `Authorization: Bearer <CRON_SECRET>`.
 
 ### AI image generation pipeline
 `backend/api/productos/imagenIA.service.js`:
@@ -89,7 +92,7 @@ Custom palette defined in `frontend/tailwind.config.js`:
 ## Environment variables
 
 All required vars are in `backend/.env.example`. The three external services are:
-- **MySQL** — `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`
+- **PostgreSQL (Aiven)** — `DATABASE_URL` (Service URI) or `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`
 - **Cloudinary** — `CLOUDINARY_URL` (combined) or the three split vars
 - **Hugging Face** — `HF_TOKEN` (free "Read" token from huggingface.co)
 

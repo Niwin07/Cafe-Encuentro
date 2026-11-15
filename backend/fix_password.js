@@ -1,6 +1,6 @@
 // backend/fix_password.js
 const bcrypt = require('bcrypt');
-const pool = require('./conexion'); // Tu conexión a MySQL
+const pool = require('./conexion'); // Conexión a PostgreSQL
 
 async function arreglarAdmin() {
   try {

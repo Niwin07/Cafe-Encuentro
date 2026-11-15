@@ -9,7 +9,7 @@ const obtenerTodos = async () => {
 const crear = async (nombre, descripcion) => {
   const query = `
     INSERT INTO destinos (nombre, descripcion, activo)
-    VALUES (?, ?, 1)
+    VALUES (?, ?, TRUE)
   `;
 
   const [result] = await pool.query(query, [nombre, descripcion]);
