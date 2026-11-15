@@ -45,7 +45,9 @@ export default function VistaMozos() {
     else setLoading(true);
 
     try {
-      const { data } = await api.get('/productos');
+      // Solo activos: antes un producto eliminado (soft delete) con stock
+      // seguía apareciendo en el menú público.
+      const { data } = await api.get('/productos', { params: { activo: true } });
       setProductos(data.productos.filter((p) => p.stock > 0));
     } catch (err) {
       console.error('Error cargando el menú:', err);

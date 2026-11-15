@@ -27,9 +27,9 @@ export default function TableroDestino({ titulo, subtitulo, icono: Icono, endpoi
   const [permisoSonido, setPermisoSonido] = useState(false);
 
   const audioRef = useRef(null);
-  const prevItemsRef = useRef(0);
+  const idsVistosRef = useRef(null); // null = todavía no hubo carga inicial
   const permisoSonidoRef = useRef(false);
-  const primeraCargaRef = useRef(true);
+  const cargandoRef = useRef(false);
 
   useEffect(() => {
     audioRef.current = new Audio('/ding.wav');
@@ -38,32 +38,36 @@ export default function TableroDestino({ titulo, subtitulo, icono: Icono, endpoi
   }, []);
 
   const cargarPedidos = useCallback(async () => {
+    // Evita requests solapados si una respuesta tarda más que el intervalo
+    if (cargandoRef.current) return;
+    cargandoRef.current = true;
     try {
       const { data } = await api.get(endpoint);
       const nuevosItems = data.items || {};
-      const totalItemsActuales = Object.values(nuevosItems).reduce((sum, list) => sum + list.length, 0);
 
-      if (primeraCargaRef.current) {
-        prevItemsRef.current = totalItemsActuales;
-        primeraCargaRef.current = false;
-      } else {
-        if (totalItemsActuales > prevItemsRef.current && permisoSonidoRef.current && audioRef.current) {
-          audioRef.current.currentTime = 0;
-          audioRef.current.play().catch((e) => console.error('Error reproduciendo aviso sonoro:', e));
-          if (navigator.vibrate) navigator.vibrate(200);
-        }
-        prevItemsRef.current = totalItemsActuales;
+      // El aviso suena cuando aparece un ítem con ID nuevo. Antes se comparaba
+      // el TOTAL de ítems: si en el mismo ciclo salía uno y entraba otro, no sonaba.
+      const idsActuales = new Set(Object.values(nuevosItems).flat().map((item) => item.id));
+      const hayNuevos =
+        idsVistosRef.current !== null && [...idsActuales].some((id) => !idsVistosRef.current.has(id));
+      idsVistosRef.current = idsActuales;
+
+      if (hayNuevos && permisoSonidoRef.current && audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch((e) => console.error('Error reproduciendo aviso sonoro:', e));
+        if (navigator.vibrate) navigator.vibrate(200);
       }
 
       setPedidos(nuevosItems);
       setUltimoUpdate(new Date());
     } catch (err) {
       console.error(`Error conectando con ${endpoint}:`, err);
+    } finally {
+      cargandoRef.current = false;
     }
   }, [endpoint]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- polling intencional: primer fetch inmediato y luego cada POLL_MS
     cargarPedidos();
     const intervalo = setInterval(cargarPedidos, POLL_MS);
     return () => clearInterval(intervalo);
@@ -83,13 +87,17 @@ export default function TableroDestino({ titulo, subtitulo, icono: Icono, endpoi
 
   const avanzarEstado = async (itemId, estadoActual) => {
     const idx = flujoEstados.indexOf(estadoActual);
-    if (idx >= flujoEstados.length - 1) return;
-    const nuevoEstado = flujoEstados[idx + 1];
+    // Un estado fuera del flujo (p. ej. 'En Preparación' en cocina) avanza al
+    // último paso. Antes indexOf devolvía -1 y el ítem volvía a 'Pendiente'.
+    const nuevoEstado = idx === -1 ? flujoEstados[flujoEstados.length - 1] : flujoEstados[idx + 1];
+    if (!nuevoEstado || nuevoEstado === estadoActual) return;
     try {
       await api.patch(`/pedidos/items/${itemId}/estado`, { estado: nuevoEstado });
+    } catch (err) {
+      // p. ej. la caja canceló el pedido mientras se preparaba
+      toast.error(err.response?.data?.mensaje || 'No se pudo actualizar el estado del ítem.');
+    } finally {
       cargarPedidos();
-    } catch {
-      toast.error('No se pudo actualizar el estado del ítem.');
     }
   };
 

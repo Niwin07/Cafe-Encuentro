@@ -24,7 +24,10 @@ export default function Registros() {
   const [, setLocation] = useLocation();
   const toast = useToast();
 
-  const hoy = new Date().toISOString().split('T')[0];
+  // Fecha local. Antes era toISOString() (UTC): en Argentina, desde las 21:00
+  // el filtro "hoy" abría en el día siguiente y no mostraba los pedidos del evento.
+  const ahora = new Date();
+  const hoy = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
   const [fechaDesde, setFechaDesde] = useState(hoy);
   const [fechaHasta, setFechaHasta] = useState(hoy);
   const [filtroSector, setFiltroSector] = useState('GENERAL');

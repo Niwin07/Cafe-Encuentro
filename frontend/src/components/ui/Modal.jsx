@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import IconButton from './IconButton';
@@ -18,7 +18,10 @@ export default function Modal({ open, onClose, title, description, children, foo
   // Patrón "latest ref": evita que una nueva arrow function inline del padre (ej. () => setShowModal(false))
   // provoque que el efecto se re-ejecute y robe el foco del input activo → teclado no se cierra.
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  // Se actualiza después del render (escribir un ref durante el render no es seguro en React 19)
+  useLayoutEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     if (!open) return;
