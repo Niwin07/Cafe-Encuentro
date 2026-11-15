@@ -1,0 +1,34 @@
+# Respaldo del cron de Vercel: llama al endpoint de keep-alive para que Aiven
+# no apague la base por inactividad.
+#
+# Configuración (Settings → Secrets and variables → Actions):
+#   - Variable KEEPALIVE_URL = https://<tu-dominio>/api/keepalive   (obligatoria)
+#   - Secret   CRON_SECRET   = mismo valor que en Vercel             (solo si lo definiste)
+# Sin KEEPALIVE_URL el workflow no hace nada.
+name: Keep-alive base de datos
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'   # cada 6 horas
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /api/keepalive
+        env:
+          URL: ${{ vars.KEEPALIVE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$URL" ]; then
+            echo "KEEPALIVE_URL no está configurada; nada para hacer."
+            exit 0
+          fi
+          for intento in 1 2 3; do
+            if curl -fsS --max-time 60 ${CRON_SECRET:+-H "Authorization: Bearer $CRON_SECRET"} "$URL"; then
+              echo; echo "OK"; exit 0
+            fi
+            echo "Intento $intento falló, reintentando..."; sleep 30
+          done
+          exit 1

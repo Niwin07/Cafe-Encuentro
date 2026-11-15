@@ -134,6 +134,16 @@ CREATE INDEX IF NOT EXISTS idx_items_pedido  ON pedidos_items(pedido_id);
 CREATE INDEX IF NOT EXISTS idx_items_destino ON pedidos_items(destino_id, estado);
 
 -- -----------------------------------------------------------------------------
+-- Keep-alive: una sola fila que el cron actualiza para que Aiven vea actividad
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS keepalive (
+  id          INTEGER PRIMARY KEY,
+  ultimo_ping TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  origen      VARCHAR(100),
+  total_pings BIGINT NOT NULL DEFAULT 0
+);
+
+-- -----------------------------------------------------------------------------
 -- Triggers updated_at
 -- -----------------------------------------------------------------------------
 DO $$

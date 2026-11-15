@@ -45,6 +45,9 @@ Key cross-cutting pieces:
 - `backend/api/middleware/validator.js` — global `sanitizar` middleware applied to all requests.
 - `backend/api/utils/constants.js` — canonical state strings (`Pendiente`, `En Preparación`, `Listo`, `Entregado`, `Cancelado`) and domain enums used by both models and controllers.
 
+### Database keep-alive
+Aiven powers off idle free-tier services. `GET /api/keepalive` (`backend/api/keepalive/`) upserts a row in the `keepalive` table. It is called daily by a Vercel Cron Job (`crons` in `frontend/vercel.json`) and every 6h by `.github/workflows/keepalive.yml` (needs repo variable `KEEPALIVE_URL`). If `CRON_SECRET` is set, the endpoint requires `Authorization: Bearer <CRON_SECRET>`.
+
 ### AI image generation pipeline
 `backend/api/productos/imagenIA.service.js`:
 1. Translates the product name/description Spanish → English via MyMemory API.
