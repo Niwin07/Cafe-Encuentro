@@ -1,0 +1,13 @@
+{
+  "installCommand": "npm install && npm install --prefix ../backend",
+  "functions": {
+    "api/index.js": { "maxDuration": 60 }
+  },
+  "crons": [
+    { "path": "/api/keepalive", "schedule": "0 12 * * *" }
+  ],
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/((?!api/).*)", "destination": "/" }
+  ]
+}
