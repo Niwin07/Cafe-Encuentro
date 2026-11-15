@@ -23,7 +23,7 @@ const obtenerTodos = async () => {
 const crear = async (nombre, categoria, stock = 0, producto_vinculado_id = null) => {
   const query = `
     INSERT INTO acompanamientos (nombre, categoria, stock, producto_vinculado_id, activo)
-    VALUES (?, ?, ?, ?, 1)
+    VALUES (?, ?, ?, ?, TRUE)
   `;
   // Si hay producto vinculado, el stock propio se ignora (o se pone en 0)
   const stockReal = producto_vinculado_id ? 0 : stock;
@@ -53,7 +53,7 @@ const actualizar = async (id, datos) => {
 
 // Eliminar (Soft Delete - Desactivar)
 const eliminar = async (id) => {
-  const [result] = await pool.query('UPDATE acompanamientos SET activo = 0 WHERE id = ?', [id]);
+  const [result] = await pool.query('UPDATE acompanamientos SET activo = FALSE WHERE id = ?', [id]);
   return result.affectedRows > 0;
 };
 

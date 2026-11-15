@@ -161,7 +161,7 @@ const obtenerTodos = async (filtros = {}) => {
 
   // Filtrar por cliente
   if (filtros.cliente) {
-    condiciones.push('p.cliente LIKE ?');
+    condiciones.push('p.cliente ILIKE ?');
     valores.push(`%${filtros.cliente}%`);
   }
 

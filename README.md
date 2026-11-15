@@ -13,5 +13,5 @@ Una plataforma completa Fullstack diseñada para optimizar los flujos de trabajo
 
 - **Frontend:** React.js, Tailwind CSS (o la librería de estilos que uses)
 - **Backend:** Node.js, Express.js
-- **Base de Datos:** MySQL
+- **Base de Datos:** PostgreSQL (Aiven)
 - **Arquitectura:** MERN adaptado a bases de datos relacionales.

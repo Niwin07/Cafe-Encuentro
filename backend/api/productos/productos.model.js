@@ -49,7 +49,7 @@ const obtenerTodos = async (filtros = {}) => {
 
   // Filtrar por búsqueda de texto
   if (filtros.busqueda) {
-    condiciones.push('(p.nombre LIKE ? OR p.ingredientes LIKE ?)');
+    condiciones.push('(p.nombre ILIKE ? OR p.ingredientes ILIKE ?)');
     const busqueda = `%${filtros.busqueda}%`;
     valores.push(busqueda, busqueda);
   }

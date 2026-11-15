@@ -5,7 +5,7 @@ const pool = require('../../conexion');
 // --- NUEVA FUNCIÓN HELPER ---
 const obtenerIdDestino = async (nombre) => {
   try {
-    const [rows] = await pool.query('SELECT id FROM destinos WHERE nombre LIKE ? LIMIT 1', [`%${nombre}%`]);
+    const [rows] = await pool.query('SELECT id FROM destinos WHERE nombre ILIKE ? LIMIT 1', [`%${nombre}%`]);
     return rows.length > 0 ? rows[0].id : (nombre === 'Cocina' ? 1 : 2);
   } catch (error) { return 1; }
 };

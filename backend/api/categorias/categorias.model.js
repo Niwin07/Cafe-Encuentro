@@ -27,7 +27,7 @@ const actualizar = async (id, nombre, descripcion) => {
 };
 
 const eliminar = async (id) => {
-  // Nota: Si hay productos usando esta categoría, MySQL dará error por FK (protección)
+  // Nota: Si hay productos usando esta categoría, Postgres dará error por FK (protección)
   const [result] = await pool.query('DELETE FROM categorias WHERE id = ?', [id]);
   return result.affectedRows > 0;
 };
