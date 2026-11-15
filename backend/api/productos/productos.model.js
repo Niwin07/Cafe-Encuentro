@@ -122,6 +122,39 @@ const obtenerAcompanamientos = async (productoId) => {
 };
 
 /**
+ * Acompañamientos de VARIOS productos en una sola consulta.
+ * Devuelve Map productoId → [acompañamientos]. Reemplaza el patrón N+1
+ * (una query por producto) de los listados.
+ */
+const obtenerAcompanamientosPorProductos = async (productoIds) => {
+  const mapa = new Map();
+  if (productoIds.length === 0) return mapa;
+
+  const query = `
+    SELECT 
+      pa.producto_id,
+      a.id,
+      a.nombre,
+      a.categoria,
+      a.activo,
+      a.producto_vinculado_id,
+      COALESCE(p_link.stock, a.stock) as stock
+    FROM acompanamientos a
+    INNER JOIN productos_acompanamientos pa ON a.id = pa.acompanamiento_id
+    LEFT JOIN productos p_link ON a.producto_vinculado_id = p_link.id
+    WHERE pa.producto_id IN (?) AND a.activo = TRUE
+    ORDER BY a.categoria, a.nombre
+  `;
+
+  const [rows] = await pool.query(query, [productoIds]);
+  rows.forEach(({ producto_id, ...acomp }) => {
+    if (!mapa.has(producto_id)) mapa.set(producto_id, []);
+    mapa.get(producto_id).push(acomp);
+  });
+  return mapa;
+};
+
+/**
  * Crear un nuevo producto
  */
 const crear = async (producto) => {
@@ -196,8 +229,10 @@ const actualizar = async (id, producto) => {
     valores.push(producto.imagen_url);
   }
 
+  // Sin campos de producto (p. ej. solo se cambian acompañamientos): nada que hacer.
+  // Antes lanzaba un Error genérico que terminaba en un 500.
   if (campos.length === 0) {
-    throw new Error('No hay campos para actualizar');
+    return false;
   }
 
   valores.push(id);
@@ -233,9 +268,9 @@ const ajustarStock = async (id, cantidad) => {
   const query = `
     UPDATE productos 
     SET stock = stock + ? 
-    WHERE id = ?
+    WHERE id = ? AND stock + ? >= 0
   `;
-  const [result] = await pool.query(query, [cantidad, id]);
+  const [result] = await pool.query(query, [cantidad, id, cantidad]);
   return result.affectedRows > 0;
 };
 
@@ -327,6 +362,7 @@ module.exports = {
   obtenerTodos,
   obtenerPorId,
   obtenerAcompanamientos,
+  obtenerAcompanamientosPorProductos,
   crear,
   actualizar,
   actualizarImagen,

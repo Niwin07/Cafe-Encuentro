@@ -6,6 +6,7 @@ const { validarCamposRequeridos } = require('../middleware/validator');
 
 router.get('/', controller.obtenerTodas);
 router.post('/', verificarToken, validarCamposRequeridos(['nombre']), controller.crear);
+router.put('/:id', verificarToken, controller.actualizar);
 router.delete('/:id', verificarToken, controller.eliminar);
 
 module.exports = router;

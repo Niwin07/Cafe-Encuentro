@@ -1,11 +1,15 @@
 const { ESTADOS_PEDIDO_ITEM, ESTADOS_PEDIDO_GENERAL } = require('./constants');
 
 /**
- * Genera un ID único para un pedido
- * Formato: P + timestamp
+ * Genera un ID para un pedido. Formato: P + timestamp (ms).
+ * Es monotónico dentro de la instancia: dos pedidos en el mismo milisegundo
+ * ya no reciben el mismo ID. Entre instancias serverless distintas la
+ * colisión se resuelve reintentando el INSERT (ver pedidos.controller crear).
  */
+let ultimoTimestampPedido = 0;
 const generarIdPedido = () => {
-  return 'P' + Date.now();
+  ultimoTimestampPedido = Math.max(Date.now(), ultimoTimestampPedido + 1);
+  return 'P' + ultimoTimestampPedido;
 };
 
 /**
@@ -227,17 +231,22 @@ const esFechaValida = (fecha) => {
 };
 
 /**
- * Genera un hash simple para passwords (SOLO PARA DESARROLLO)
- * En producción usar bcrypt
+ * Valida un filtro de fecha recibido por query string.
+ * - "YYYY-MM-DD" o "YYYY-MM-DD HH:mm[:ss]" (sin zona): se devuelve tal cual y
+ *   PostgreSQL lo interpreta en la zona de la sesión (DB_TIMEZONE, por defecto
+ *   America/Argentina/Buenos_Aires; ver conexion.js).
+ * - ISO con zona ("…Z" o "…-03:00"): se convierte a Date (instante exacto).
+ * Devuelve undefined si no hay valor o es inválido (el filtro se ignora), así
+ * un texto arbitrario nunca llega a la consulta.
  */
-const hashSimple = (texto) => {
-  let hash = 0;
-  for (let i = 0; i < texto.length; i++) {
-    const char = texto.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
+const normalizarFecha = (valor) => {
+  if (!valor || typeof valor !== 'string') return undefined;
+  if (/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}(:\d{2})?)?$/.test(valor)) return valor;
+  if (/^\d{4}-\d{2}-\d{2}T.*(Z|[+-]\d{2}:?\d{2})$/.test(valor)) {
+    const fecha = new Date(valor);
+    return isNaN(fecha) ? undefined : fecha;
   }
-  return hash.toString();
+  return undefined;
 };
 
 module.exports = {
@@ -254,5 +263,5 @@ module.exports = {
   crearQueryString,
   agruparPor,
   esFechaValida,
-  hashSimple
+  normalizarFecha
 };

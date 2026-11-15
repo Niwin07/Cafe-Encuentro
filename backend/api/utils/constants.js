@@ -15,6 +15,17 @@ const ESTADOS_PEDIDO_ITEM = {
 const ESTADOS_ITEM_VALIDOS = Object.values(ESTADOS_PEDIDO_ITEM);
 
 /**
+ * Estados que las vistas públicas (cocina/cafetería, sin login) pueden asignar.
+ * "Entregado" y "Cancelado" afectan caja/stock y solo se asignan mediante
+ * los endpoints protegidos /:id/entregar y /:id/cancelar.
+ */
+const ESTADOS_ITEM_COCINA = [
+  ESTADOS_PEDIDO_ITEM.PENDIENTE,
+  ESTADOS_PEDIDO_ITEM.EN_PREPARACION,
+  ESTADOS_PEDIDO_ITEM.LISTO
+];
+
+/**
  * Constantes de estados de pedidos (cabecera/general)
  */
 const ESTADOS_PEDIDO_GENERAL = {
@@ -83,7 +94,8 @@ const MENSAJES_EXITO = {
  */
 const PAGINACION = {
   LIMITE_DEFAULT: 20,
-  LIMITE_MAX: 100
+  LIMITE_MAX: 100,
+  LIMITE_HISTORIAL: 1000 // la vista de Registros pide hasta 1000 pedidos por rango
 };
 
 /**
@@ -105,6 +117,7 @@ const REGEX = {
 module.exports = {
   ESTADOS_PEDIDO_ITEM,
   ESTADOS_ITEM_VALIDOS,
+  ESTADOS_ITEM_COCINA,
   ESTADOS_PEDIDO_GENERAL,
   ESTADOS_GENERAL_VALIDOS,
   CATEGORIAS_ACOMPANAMIENTO,

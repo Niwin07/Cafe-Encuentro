@@ -171,8 +171,6 @@ SELECT * FROM (VALUES
 WHERE NOT EXISTS (SELECT 1 FROM destinos);
 SELECT setval(pg_get_serial_sequence('destinos', 'id'), GREATEST((SELECT COALESCE(MAX(id), 1) FROM destinos), 1));
 
--- Usuario administrador inicial: admin / 123456  (¡cambiar la contraseña después!)
-INSERT INTO cajeras (nombre, usuario, password_hash, activo)
-SELECT 'Admin', 'admin', '$2b$10$ELprI11MorWPjP91jlzHf.xZNQ9guHf7rWWejRz02A31G2cFu18q2', TRUE
-WHERE NOT EXISTS (SELECT 1 FROM cajeras);
+-- El usuario admin inicial ya no se crea acá con una contraseña fija:
+-- lo crea conexion.js desde la variable ADMIN_PASSWORD si la tabla está vacía.
 `;

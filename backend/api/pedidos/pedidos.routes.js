@@ -3,17 +3,19 @@ const router = express.Router();
 const pedidosController = require('./pedidos.controller');
 const { verificarToken } = require('../middleware/auth');
 const { validarCamposRequeridos, validarEnum } = require('../middleware/validator');
-const { ESTADOS_ITEM_VALIDOS } = require('../utils/constants');
+const { ESTADOS_ITEM_COCINA } = require('../utils/constants');
 
 // Rutas públicas (para cocina y cafetería)
 router.get('/cocina/activos', pedidosController.obtenerCocinaActivos);
 router.get('/cafeteria/activos', pedidosController.obtenerCafeteriaActivos);
 router.get('/destino/:destinoId/activos', pedidosController.obtenerActivosPorDestino);
 
+// Las vistas de cocina/cafetería no tienen login: solo pueden mover items
+// entre Pendiente / En Preparación / Listo.
 router.patch(
   '/items/:itemId/estado',
   validarCamposRequeridos(['estado']),
-  validarEnum('estado', ESTADOS_ITEM_VALIDOS),
+  validarEnum('estado', ESTADOS_ITEM_COCINA),
   pedidosController.cambiarEstadoItem
 );
 

@@ -1,5 +1,5 @@
 const categoriasModel = require('./categorias.model');
-const { MENSAJES_ERROR, MENSAJES_EXITO } = require('../utils/constants');
+const { MENSAJES_ERROR } = require('../utils/constants');
 
 const obtenerTodas = async (req, res, next) => {
   try {
@@ -20,6 +20,19 @@ const crear = async (req, res, next) => {
   }
 };
 
+// PUT /api/categorias/:id (antes no existía: editar desde el panel daba 404)
+const actualizar = async (req, res, next) => {
+  try {
+    const exito = await categoriasModel.actualizar(req.params.id, req.body);
+    if (!exito) {
+      return res.status(404).json({ error: MENSAJES_ERROR.CATEGORIA_NO_ENCONTRADA, mensaje: MENSAJES_ERROR.CATEGORIA_NO_ENCONTRADA });
+    }
+    res.json({ mensaje: 'Categoría actualizada' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const eliminar = async (req, res, next) => {
   try {
     const exito = await categoriasModel.eliminar(req.params.id);
@@ -34,4 +47,4 @@ const eliminar = async (req, res, next) => {
   }
 };
 
-module.exports = { obtenerTodas, crear, eliminar };
+module.exports = { obtenerTodas, crear, actualizar, eliminar };

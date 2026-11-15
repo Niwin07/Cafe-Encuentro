@@ -32,12 +32,27 @@ const configBase = process.env.DATABASE_URL
       port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 5432
     };
 
+/**
+ * SSL (Aiven lo exige):
+ * - Con DB_CA_CERT (el "CA certificate" de Aiven en formato PEM; se puede pegar
+ *   en una línea con \n) se valida el certificado del servidor (evita MITM).
+ * - Sin DB_CA_CERT se mantiene el comportamiento anterior (sin validar).
+ * - DB_SSL=false solo para una base local.
+ */
+const construirSSL = () => {
+  if (process.env.DB_SSL === 'false') return false;
+  if (process.env.DB_CA_CERT) {
+    return { ca: process.env.DB_CA_CERT.replace(/\\n/g, '\n'), rejectUnauthorized: true };
+  }
+  return { rejectUnauthorized: false };
+};
+
 const pgPool = new Pool({
   ...configBase,
   max: 3, // en serverless cada instancia abre su propio pool
   idleTimeoutMillis: 10000,
   connectionTimeoutMillis: 10000,
-  ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false }, // Aiven exige SSL
+  ssl: construirSSL(),
   options: `-c TimeZone=${zonaHoraria}`
 });
 
@@ -153,11 +168,34 @@ const ejecutar = async (cliente, sql, params = []) => {
 // Inicialización automática del esquema (una vez por instancia)
 // ---------------------------------------------------------------------------
 let esquemaListo = null;
+
+/**
+ * Si la base no tiene ninguna cajera, crea "admin" con la contraseña de
+ * ADMIN_PASSWORD. Antes el esquema insertaba admin / 123456 con un hash fijo
+ * publicado en el repositorio.
+ */
+const crearAdminInicial = async () => {
+  const { rows } = await pgPool.query('SELECT 1 FROM cajeras LIMIT 1');
+  if (rows.length > 0) return;
+  const password = process.env.ADMIN_PASSWORD;
+  if (!password || password.length < 8) {
+    console.warn('⚠️ No hay cajeras: definí ADMIN_PASSWORD (mín. 8 caracteres) o corré "node fix_password.js <clave>"');
+    return;
+  }
+  const bcrypt = require('bcrypt');
+  const hash = await bcrypt.hash(password, 10);
+  await pgPool.query(
+    "INSERT INTO cajeras (nombre, usuario, password_hash, activo) VALUES ('Admin', 'admin', $1, TRUE) ON CONFLICT (usuario) DO NOTHING",
+    [hash]
+  );
+  console.log('✅ Usuario admin inicial creado desde ADMIN_PASSWORD');
+};
 const asegurarEsquema = () => {
   if (process.env.DB_AUTO_SCHEMA === 'false') return Promise.resolve();
   if (!esquemaListo) {
     const schemaSql = require('./sql/schema');
     esquemaListo = pgPool.query(schemaSql)
+      .then(crearAdminInicial)
       .then(() => console.log('✅ Esquema de PostgreSQL verificado'))
       .catch((err) => {
         esquemaListo = null; // reintentar en el próximo request
