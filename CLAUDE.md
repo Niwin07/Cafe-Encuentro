@@ -40,8 +40,12 @@ Each domain lives in `backend/api/<domain>/` with three files: `*.model.js` (SQL
 Domains: `auth`, `productos`, `pedidos`, `categorias`, `destinos`, `acompanamientos`, `registros`.
 
 Key cross-cutting pieces:
-- `backend/conexion.js` — shared MySQL connection pool (SSL enabled, limit 3 for serverless compatibility).
-- `backend/api/middleware/auth.js` — JWT verification; attaches `req.cajera` to authenticated requests. Most routes use `verificarToken`; kitchen/cafeteria views use `verificarTokenOpcional` or no auth.
+- `backend/conexion.js` — shared MySQL connection pool (limit 3 for serverless compatibility). SSL is on; set `DB_CA_CERT` to verify Aiven's certificate, or `DB_SSL=false` only for a local DB.
+- `backend/api/middleware/auth.js` — JWT verification; attaches `req.cajera` to authenticated requests. Most routes use `verificarToken`; kitchen/cafeteria views use no auth. `POST /api/auth/registro` requires a token (cashiers are created from the admin panel).
+- `backend/api/utils/db.js` — `conTransaccion(fn)` (begin/commit/rollback and a single `release()`; never release a pooled connection twice), `errorNegocio(status, mensaje)` for controlled errors, and the shared `obtenerIdDestinoPorNombre`.
+- The public `PATCH /api/pedidos/items/:itemId/estado` only accepts `ESTADOS_ITEM_COCINA` (`Pendiente`, `En Preparación`, `Listo`). `Entregado`/`Cancelado` go through the authenticated `/:id/entregar` and `/:id/cancelar`, which also handle stock.
+- Order creation validates the **aggregated** demand per product/side dish (including side dishes linked to a product's stock) under `SELECT … FOR UPDATE`.
+- Error responses always include `mensaje`; the frontend shows it via `mensajeError()` from `services/api.js`.
 - `backend/api/middleware/validator.js` — global `sanitizar` middleware applied to all requests.
 - `backend/api/utils/constants.js` — canonical state strings (`Pendiente`, `En Preparación`, `Listo`, `Entregado`, `Cancelado`) and domain enums used by both models and controllers.
 
@@ -60,17 +64,22 @@ Route → component map:
 |------|-----------|---------------|
 | `/` | `VistaMozos` | No |
 | `/pedidos` | `MenuCajera` | Yes (redirects to `/login`) |
+| `/login` | `Login` | No |
 | `/cocina` | `VistaCocina` | No |
 | `/cafeteria` | `VistaCafeteria` | No |
 | `/admin` | `AdminPanel` | Yes |
-| `/registros` | `Registros` | No |
+| `/registros` | `Registros` | Yes |
 
-Kitchen (`VistaCocina`) and cafeteria bar (`VistaCafeteria`) poll for active items by destination ID. `VistaMozos` displays active orders across all destinations.
+Protected routes are wrapped in `components/RutaProtegida.jsx`. On startup `AuthContext` validates the stored token against `/auth/verificar`; an axios response interceptor clears the session and redirects to `/login` on any 401.
+
+Kitchen (`VistaCocina`) and cafeteria bar (`VistaCafeteria`) share `hooks/usePedidosDestino.js` (5 s polling, no overlapping requests, sound when a new item ID appears). `VistaMozos` is the public product menu (stock-filtered).
+
+`Registros` sends date ranges as ISO instants computed from the user's **local** day (Argentina, UTC-3); the backend parses them with `normalizarFecha` (helpers.js).
 
 ## Environment variables
 
 All required vars are in `backend/.env.example`. The three external services are:
-- **MySQL** — `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`
+- **MySQL** (Aiven) — `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`, optional `DB_CA_CERT`
 - **Cloudinary** — `CLOUDINARY_URL` (combined) or the three split vars
 - **Hugging Face** — `HF_TOKEN` (free "Read" token from huggingface.co)
 
