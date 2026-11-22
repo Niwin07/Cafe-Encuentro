@@ -145,29 +145,70 @@ const generarImagen = async (prompt) => {
   throw errorNegocio(503, mensaje, 'Generador de imágenes no disponible');
 };
 
+const verificarCloudinary = () => {
+  if (!cloudinary.config().api_key) {
+    throw errorNegocio(503, 'Cloudinary no está configurado (revisar CLOUDINARY_URL en Vercel).', 'Imágenes no disponibles');
+  }
+};
+
+/** Sube la imagen (data URI) a Cloudinary con un public_id fijo por producto. */
+const subirACloudinary = async (dataUri, productoId) => {
+  const resultado = await cloudinary.uploader.upload(dataUri, {
+    folder: 'cafe-encuentro/productos',
+    public_id: `producto_${productoId}`,
+    overwrite: true,
+    invalidate: true   // purga la caché del CDN al sobreescribir (si no, se sigue viendo la imagen vieja)
+  });
+  return resultado.secure_url;
+};
+
 /**
  * Genera una imagen a partir del nombre/descripción y la sube a Cloudinary
  * para que quede alojada de forma permanente.
  */
 const generarYGuardarImagen = async ({ productoId, nombre, descripcion }) => {
-  if (!cloudinary.config().api_key) {
-    throw errorNegocio(503, 'Cloudinary no está configurado (revisar CLOUDINARY_URL en Vercel).', 'Imágenes no disponibles');
-  }
+  verificarCloudinary();
 
   const promptBaseEs = [nombre, descripcion].filter(Boolean).join(', ');
   const promptBase = await traducirAIngles(promptBaseEs);
   const prompt = `${promptBase}, ${ESTILO_FOTO}`;
 
   const { buffer, tipo } = await generarImagen(prompt);
-
-  const resultado = await cloudinary.uploader.upload(`data:${tipo};base64,${buffer.toString('base64')}`, {
-    folder: 'cafe-encuentro/productos',
-    public_id: `producto_${productoId}`,
-    overwrite: true,
-    invalidate: true   // purga la caché del CDN al sobreescribir (si no, se sigue viendo la imagen vieja)
-  });
-
-  return resultado.secure_url;
+  return subirACloudinary(`data:${tipo};base64,${buffer.toString('base64')}`, productoId);
 };
 
-module.exports = { generarYGuardarImagen };
+// -----------------------------------------------------------------------------
+// Foto subida por el usuario
+// -----------------------------------------------------------------------------
+const MAX_BYTES_FOTO = 3 * 1024 * 1024; // el frontend la achica antes; esto es un tope de seguridad
+
+/** Detecta el formato real por los primeros bytes (no confía en lo que declara el cliente). */
+const formatoReal = (buffer) => {
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'image/jpeg';
+  if (buffer.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png';
+  if (buffer.slice(0, 4).toString('ascii') === 'RIFF' && buffer.slice(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
+  return null;
+};
+
+/**
+ * Valida y guarda una foto enviada como data URI (JPEG, PNG o WebP).
+ */
+const guardarImagenSubida = async ({ productoId, imagen }) => {
+  const match = typeof imagen === 'string' && imagen.match(/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/);
+  if (!match) {
+    throw errorNegocio(400, 'La imagen debe ser una foto JPG, PNG o WebP.', 'Imagen inválida');
+  }
+  const buffer = Buffer.from(match[2], 'base64');
+  if (buffer.length === 0 || buffer.length > MAX_BYTES_FOTO) {
+    throw errorNegocio(400, 'La foto es demasiado grande (máximo 3 MB).', 'Imagen inválida');
+  }
+  const tipo = formatoReal(buffer);
+  if (!tipo) {
+    throw errorNegocio(400, 'El archivo no es una imagen válida.', 'Imagen inválida');
+  }
+
+  verificarCloudinary();
+  return subirACloudinary(`data:${tipo};base64,${buffer.toString('base64')}`, productoId);
+};
+
+module.exports = { generarYGuardarImagen, guardarImagenSubida };

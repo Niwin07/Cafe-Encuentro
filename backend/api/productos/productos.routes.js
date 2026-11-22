@@ -22,6 +22,8 @@ router.post(
 
 router.put("/:id", verificarToken, productosController.actualizar);
 router.post("/:id/generar-imagen", verificarToken, productosController.generarImagen);
+// Foto propia en base64: este body puede pesar varios MB (ver index.js, límite propio)
+router.post("/:id/imagen", verificarToken, productosController.subirImagen);
 router.patch("/:id/stock", verificarToken, productosController.actualizarStock);
 router.delete("/:id", verificarToken, productosController.eliminar);
 module.exports = router;

@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import {
   ArrowLeft,
@@ -15,10 +15,12 @@ import {
   Tag,
   Target,
   Trash2,
+  Upload,
   Users,
   Utensils,
 } from 'lucide-react';
 import api from '../../services/api';
+import { achicarImagen } from '../../lib/imagen';
 import { useToast } from '../../context/ToastContext';
 import PageHeader from '../../components/ui/PageHeader';
 import Tabs from '../../components/ui/Tabs';
@@ -90,6 +92,7 @@ export default function AdminPanel() {
   const [creandoAcomp, setCreandoAcomp] = useState(false);
 
   const [generandoImagen, setGenerandoImagen] = useState(false);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
 
   // Estable: no cambia entre renders, evita que Modal re-ejecute su efecto de foco.
   const closeModal = useCallback(() => setShowModal(false), []);
@@ -183,6 +186,24 @@ export default function AdminPanel() {
       setGenerandoImagen(false);
     }
   }, [editingItem?.id, toast]);
+
+  const handleSubirFoto = useCallback(
+    async (archivo) => {
+      if (!editingItem?.id || !archivo) return;
+      setSubiendoFoto(true);
+      try {
+        const imagen = await achicarImagen(archivo);
+        const { data: res } = await api.post(`/productos/${editingItem.id}/imagen`, { imagen });
+        setEditingItem((prev) => ({ ...prev, imagen_url: res.imagen_url }));
+        toast.success('Foto guardada.');
+      } catch (err) {
+        toast.error(err.response?.data?.mensaje || err.message || 'No se pudo subir la foto.');
+      } finally {
+        setSubiendoFoto(false);
+      }
+    },
+    [editingItem?.id, toast]
+  );
 
   const handleSave = useCallback(
     async (e) => {
@@ -366,6 +387,8 @@ export default function AdminPanel() {
               editingItem={editingItem}
               generandoImagen={generandoImagen}
               onGenerarImagen={handleGenerarImagen}
+              subiendoFoto={subiendoFoto}
+              onSubirFoto={handleSubirFoto}
               nuevoAcompNombre={nuevoAcompNombre}
               setNuevoAcompNombre={setNuevoAcompNombre}
               nuevoAcompCategoria={nuevoAcompCategoria}
@@ -414,6 +437,8 @@ const ProductoCampos = memo(function ProductoCampos({
   editingItem,
   generandoImagen,
   onGenerarImagen,
+  subiendoFoto,
+  onSubirFoto,
   nuevoAcompNombre,
   setNuevoAcompNombre,
   nuevoAcompCategoria,
@@ -421,6 +446,8 @@ const ProductoCampos = memo(function ProductoCampos({
   creandoAcomp,
   onQuickCreateAcomp,
 }) {
+  const inputFotoRef = useRef(null);
+  const ocupado = generandoImagen || subiendoFoto;
   const filtroLower = filtroAcomp.toLowerCase();
   const acompFiltrados = useMemo(
     () => auxAcomp.filter((ac) => ac.nombre.toLowerCase().includes(filtroLower)),
@@ -432,7 +459,7 @@ const ProductoCampos = memo(function ProductoCampos({
       <Textarea label="Descripción" value={form.descripcion} onChange={(e) => setField('descripcion')(e.target.value)} rows={3} />
 
       <div>
-        <p className="mb-1.5 text-sm font-semibold text-coffee-700">Imagen del producto (generada con IA)</p>
+        <p className="mb-1.5 text-sm font-semibold text-coffee-700">Imagen del producto</p>
         {editingItem?.id ? (
           <div className="flex flex-col gap-2">
             {editingItem?.imagen_url ? (
@@ -442,21 +469,47 @@ const ProductoCampos = memo(function ProductoCampos({
                 <ImageOff className="h-8 w-8" aria-hidden="true" />
               </div>
             )}
-            <p className="text-xs text-coffee-400">Se genera automáticamente a partir del nombre y la descripción.</p>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              loading={generandoImagen}
-              icon={generandoImagen ? undefined : ImagePlus}
-              onClick={onGenerarImagen}
-              className="self-start"
-            >
-              {editingItem?.imagen_url ? 'Regenerar imagen' : 'Generar imagen'}
-            </Button>
+            <p className="text-xs text-coffee-400">
+              Subí una foto propia o generá una con IA a partir del nombre y la descripción.
+            </p>
+            <input
+              ref={inputFotoRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const archivo = e.target.files?.[0];
+                e.target.value = ''; // permite volver a elegir la misma foto
+                onSubirFoto(archivo);
+              }}
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                loading={subiendoFoto}
+                disabled={ocupado}
+                icon={subiendoFoto ? undefined : Upload}
+                onClick={() => inputFotoRef.current?.click()}
+              >
+                {subiendoFoto ? 'Subiendo…' : 'Subir foto'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                loading={generandoImagen}
+                disabled={ocupado}
+                icon={generandoImagen ? undefined : ImagePlus}
+                onClick={onGenerarImagen}
+              >
+                {editingItem?.imagen_url ? 'Regenerar con IA' : 'Generar con IA'}
+              </Button>
+            </div>
           </div>
         ) : (
-          <p className="text-xs text-coffee-400">Guardá el producto primero; después podés generarle una imagen desde &quot;Editar&quot;.</p>
+          <p className="text-xs text-coffee-400">Guardá el producto primero; después podés subirle una foto o generarla desde &quot;Editar&quot;.</p>
         )}
       </div>
 

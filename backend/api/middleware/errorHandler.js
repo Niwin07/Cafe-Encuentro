@@ -53,6 +53,14 @@ const errorHandler = (err, req, res, next) => {
     }
   }
 
+  // Body demasiado grande (express.json)
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({
+      error: 'Archivo demasiado grande',
+      mensaje: 'La información enviada es demasiado grande (por ejemplo, una foto muy pesada).'
+    });
+  }
+
   // Errores de validación personalizados
   if (err.tipo === 'VALIDACION') {
     return res.status(400).json({
