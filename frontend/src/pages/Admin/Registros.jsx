@@ -5,6 +5,7 @@ import api from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import Tabs from '../../components/ui/Tabs';
 import Input from '../../components/ui/Input';
+import Select from '../../components/ui/Select';
 import IconButton from '../../components/ui/IconButton';
 import Badge from '../../components/ui/Badge';
 import Table from '../../components/ui/Table';
@@ -46,6 +47,19 @@ export default function Registros() {
   const [fechaDesde, setFechaDesde] = useState(hoy);
   const [fechaHasta, setFechaHasta] = useState(hoy);
   const [filtroSector, setFiltroSector] = useState('GENERAL');
+  const [filtroCategoria, setFiltroCategoria] = useState('');
+  const [categorias, setCategorias] = useState([]);
+
+  // Con categoría elegida, los totales son la suma de los items de esa categoría
+  const nombreCategoria = categorias.find((c) => String(c.id) === filtroCategoria)?.nombre;
+  const porItems = filtroSector !== 'GENERAL' || !!filtroCategoria;
+
+  useEffect(() => {
+    api
+      .get('/categorias')
+      .then(({ data }) => setCategorias(Array.isArray(data) ? data : []))
+      .catch(() => setCategorias([]));
+  }, []);
 
   const [datosCargados, setDatosCargados] = useState([]);
   const [filtroPago, setFiltroPago] = useState('TODOS');
@@ -58,11 +72,11 @@ export default function Registros() {
 
   const obtenerTotalFila = useCallback(
     (p) => {
-      if (filtroSector === 'GENERAL') return p.total;
+      if (!porItems) return p.total;
       if (p.items) return p.items.reduce((sum, item) => sum + (parseFloat(item.subtotal) || 0), 0).toFixed(2);
       return 0;
     },
-    [filtroSector]
+    [porItems]
   );
 
   // Filtro por método de pago (en el cliente: los datos del rango ya están cargados)
@@ -96,13 +110,15 @@ export default function Registros() {
     setLoading(true);
     try {
       const rango = `fecha_desde=${fechaDesde} 00:00:00&fecha_hasta=${fechaHasta} 23:59:59`;
+      const cat = filtroCategoria ? `&categoria_id=${encodeURIComponent(filtroCategoria)}` : '';
       let url;
-      if (filtroSector === 'COCINA') url = `/registros/cocina?${rango}`;
-      else if (filtroSector === 'CAFETERIA') url = `/registros/cafeteria?${rango}`;
+      if (filtroSector === 'COCINA') url = `/registros/cocina?${rango}${cat}`;
+      else if (filtroSector === 'CAFETERIA') url = `/registros/cafeteria?${rango}${cat}`;
+      else if (filtroCategoria) url = `/registros/todos?${rango}${cat}`;
       else url = `/pedidos?${rango}&limite=1000`;
 
       const { data } = await api.get(url);
-      const resultado = filtroSector === 'GENERAL' ? data.pedidos || [] : data.registros || [];
+      const resultado = url.startsWith('/pedidos') ? data.pedidos || [] : data.registros || [];
 
       setDatosCargados(resultado);
     } catch (err) {
@@ -111,7 +127,7 @@ export default function Registros() {
     } finally {
       setLoading(false);
     }
-  }, [fechaDesde, fechaHasta, filtroSector, toast]);
+  }, [fechaDesde, fechaHasta, filtroSector, filtroCategoria, toast]);
 
   useEffect(() => {
     cargarHistorial();
@@ -119,7 +135,7 @@ export default function Registros() {
 
   const abrirDetalle = useCallback(
     async (pedido) => {
-      if (filtroSector !== 'GENERAL' && pedido.items) {
+      if (porItems && pedido.items) {
         setPedidoSeleccionado(pedido);
         return;
       }
@@ -134,7 +150,7 @@ export default function Registros() {
         setCargandoDetalle(false);
       }
     },
-    [filtroSector, toast]
+    [porItems, toast]
   );
 
   const eliminarPedido = useCallback(
@@ -189,7 +205,7 @@ export default function Registros() {
       },
       {
         key: 'total',
-        header: filtroSector === 'GENERAL' ? 'Total ticket' : 'Subtotal sector',
+        header: filtroCategoria ? `Subtotal ${nombreCategoria || 'categoría'}` : filtroSector === 'GENERAL' ? 'Total ticket' : 'Subtotal sector',
         align: 'right',
         render: (p) => (
           <span className={esCancelado(p.estado_general) ? 'text-coffee-400 line-through' : 'font-bold text-coffee-900'}>
@@ -198,7 +214,7 @@ export default function Registros() {
         ),
       },
     ],
-    [filtroSector, obtenerTotalFila]
+    [filtroSector, filtroCategoria, nombreCategoria, obtenerTotalFila]
   );
 
   return (
@@ -223,6 +239,19 @@ export default function Registros() {
           <div className="mt-4 flex flex-wrap items-end gap-3">
             <Input type="date" label="Desde" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)} wrapperClassName="w-auto" />
             <Input type="date" label="Hasta" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)} wrapperClassName="w-auto" />
+            <Select
+              label="Categoría"
+              value={filtroCategoria}
+              onChange={(e) => setFiltroCategoria(e.target.value)}
+              wrapperClassName="w-auto min-w-[12rem]"
+            >
+              <option value="">Todas las categorías</option>
+              {categorias.map((c) => (
+                <option key={c.id} value={String(c.id)}>
+                  {c.nombre}
+                </option>
+              ))}
+            </Select>
           </div>
 
           <div className="mt-4">
@@ -235,13 +264,17 @@ export default function Registros() {
         <div className="mb-5 grid grid-cols-2 gap-3 sm:max-w-sm">
           <div className="rounded-2xl border border-cream-300 bg-white p-4 shadow-card">
             <p className="text-xs font-semibold uppercase tracking-wide text-coffee-400">
-              Tickets {filtroSector !== 'GENERAL' && 'con items'}
+              Tickets {porItems && 'con items'}
             </p>
             <p className="mt-1 text-2xl font-bold text-coffee-900">{totales.cantidad}</p>
           </div>
           <div className="rounded-2xl border border-cream-300 bg-white p-4 shadow-card">
             <p className="text-xs font-semibold uppercase tracking-wide text-coffee-400">
-              {filtroSector === 'GENERAL' ? 'Facturación total' : `Ventas ${filtroSector.toLowerCase()}`}
+              {filtroCategoria
+                ? `Ventas ${nombreCategoria || 'categoría'}`
+                : filtroSector === 'GENERAL'
+                  ? 'Facturación total'
+                  : `Ventas ${filtroSector.toLowerCase()}`}
             </p>
             <p className="mt-1 text-2xl font-bold text-coffee-900">${formatoPesos(totales.total)}</p>
           </div>
@@ -278,13 +311,19 @@ export default function Registros() {
           <Table
             columns={columnas}
             data={datosMostrados}
-            emptyState={<EmptyState icon={ScrollText} title={`No hay registros en ${filtroSector.toLowerCase()}`} />}
+            emptyState={
+              <EmptyState
+                icon={ScrollText}
+                title={filtroCategoria ? `No hay ventas de ${nombreCategoria || 'esa categoría'} en este período` : `No hay registros en ${filtroSector.toLowerCase()}`}
+              />
+            }
             renderActions={(p) => (
               <>
                 <IconButton label="Ver detalle" size="sm" variant="ghost" onClick={() => abrirDetalle(p)}>
                   <Eye className="h-4 w-4" />
                 </IconButton>
-                {filtroSector === 'GENERAL' && (
+                {/* Eliminar borra el pedido completo: solo en la vista sin filtros de sector/categoría */}
+                {!porItems && (
                   <IconButton label="Eliminar registro" size="sm" variant="danger" onClick={() => eliminarPedido(p.id || p.pedido_id)}>
                     <Trash2 className="h-4 w-4" />
                   </IconButton>
@@ -325,7 +364,11 @@ export default function Registros() {
 
             <div>
               <p className="mb-2 text-xs font-bold uppercase tracking-wide text-coffee-400">
-                {filtroSector === 'GENERAL' ? 'Todos los items' : `Items de ${filtroSector}`}
+                {filtroCategoria
+                  ? `Items de ${nombreCategoria || 'la categoría'}`
+                  : filtroSector === 'GENERAL'
+                    ? 'Todos los items'
+                    : `Items de ${filtroSector}`}
               </p>
               <ul className="flex flex-col gap-2">
                 {pedidoSeleccionado.items?.map((item, idx) => (
@@ -349,9 +392,11 @@ export default function Registros() {
             </div>
 
             <div className="flex items-center justify-between rounded-xl bg-coffee-700 px-4 py-3 text-cream-50">
-              <span className="text-sm font-semibold">{filtroSector === 'GENERAL' ? 'Total ticket' : 'Total sector'}</span>
+              <span className="text-sm font-semibold">
+                {filtroCategoria ? `Total ${nombreCategoria || 'categoría'}` : filtroSector === 'GENERAL' ? 'Total ticket' : 'Total sector'}
+              </span>
               <span className="text-lg font-bold">
-                ${filtroSector === 'GENERAL' ? pedidoSeleccionado.total : obtenerTotalFila(pedidoSeleccionado)}
+                ${porItems ? obtenerTotalFila(pedidoSeleccionado) : pedidoSeleccionado.total}
               </span>
             </div>
           </div>

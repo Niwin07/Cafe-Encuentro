@@ -5,6 +5,12 @@ const { verificarToken } = require('../middleware/auth');
 
 // Todas las rutas requieren autenticación (solo cajeras)
 router.get(
+  '/todos',
+  verificarToken,
+  registrosController.obtenerRegistrosTodos
+);
+
+router.get(
   '/cocina',
   verificarToken,
   registrosController.obtenerRegistrosCocina
