@@ -110,6 +110,16 @@ CREATE TABLE IF NOT EXISTS pedidos (
   created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   updated_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
+-- Método de pago (agregado después: bases existentes lo reciben con ALTER).
+-- NULL = pedidos anteriores a esta columna.
+ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS metodo_pago VARCHAR(20);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'pedidos_metodo_pago_check') THEN
+    ALTER TABLE pedidos ADD CONSTRAINT pedidos_metodo_pago_check
+      CHECK (metodo_pago IS NULL OR metodo_pago IN ('Efectivo', 'Transferencia', 'Tarjeta'));
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS idx_pedidos_fecha  ON pedidos(fecha_hora);
 CREATE INDEX IF NOT EXISTS idx_pedidos_cajera ON pedidos(cajera_id);
 

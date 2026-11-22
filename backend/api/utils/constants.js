@@ -41,6 +41,11 @@ const ESTADOS_PEDIDO_GENERAL = {
 const ESTADOS_GENERAL_VALIDOS = Object.values(ESTADOS_PEDIDO_GENERAL);
 
 /**
+ * Métodos de pago aceptados al crear un pedido (ver CHECK en sql/schema.js)
+ */
+const METODOS_PAGO = ['Efectivo', 'Transferencia', 'Tarjeta'];
+
+/**
  * Categorías de acompañamientos
  */
 const CATEGORIAS_ACOMPANAMIENTO = {
@@ -121,6 +126,7 @@ module.exports = {
   ESTADOS_PEDIDO_GENERAL,
   ESTADOS_GENERAL_VALIDOS,
   CATEGORIAS_ACOMPANAMIENTO,
+  METODOS_PAGO,
   DESTINOS,
   MENSAJES_ERROR,
   MENSAJES_EXITO,

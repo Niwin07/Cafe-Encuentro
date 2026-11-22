@@ -5,7 +5,8 @@ const {
   ESTADOS_PEDIDO_ITEM,
   ESTADOS_PEDIDO_GENERAL,
   ESTADOS_ITEM_COCINA,
-  PAGINACION
+  PAGINACION,
+  METODOS_PAGO
 } = require('../utils/constants');
 const {
   generarIdPedido,
@@ -67,12 +68,15 @@ const devolverStockItems = async (connection, pedidoId, estadosExcluidos) => {
  */
 const crear = async (req, res, next) => {
   try {
-    const { cliente, items, notas } = req.body;
+    const { cliente, items, notas, metodo_pago } = req.body;
     const cajeraId = req.cajera.id;
 
     // 1. Validación de entrada (antes de abrir la transacción)
     if (typeof cliente !== 'string' || cliente.trim() === '' || cliente.length > 150) {
       throw errorNegocio(400, 'El nombre del cliente es obligatorio (máx. 150 caracteres)', 'Datos incompletos');
+    }
+    if (!METODOS_PAGO.includes(metodo_pago)) {
+      throw errorNegocio(400, `Indicá el método de pago: ${METODOS_PAGO.join(', ')}`, 'Datos incompletos');
     }
     if (!Array.isArray(items) || items.length === 0 || items.length > MAX_ITEMS_POR_PEDIDO) {
       throw errorNegocio(400, `El pedido debe tener entre 1 y ${MAX_ITEMS_POR_PEDIDO} items`, 'Datos incompletos');
@@ -158,11 +162,11 @@ const crear = async (req, res, next) => {
       for (let intento = 1; ; intento++) {
         nuevoId = generarIdPedido();
         const [insercion] = await connection.query(`
-          INSERT INTO pedidos (id, cliente, cajera_id, total, notas, estado_general)
-          VALUES (?, ?, ?, ?, ?, ?)
+          INSERT INTO pedidos (id, cliente, cajera_id, total, notas, estado_general, metodo_pago)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT (id) DO NOTHING
           RETURNING id
-        `, [nuevoId, cliente.trim(), cajeraId, totalPedido, notas || null, ESTADOS_PEDIDO_GENERAL.PENDIENTE]);
+        `, [nuevoId, cliente.trim(), cajeraId, totalPedido, notas || null, ESTADOS_PEDIDO_GENERAL.PENDIENTE, metodo_pago]);
         if (insercion.affectedRows === 1) break;
         if (intento >= MAX_INTENTOS_ID) throw errorNegocio(500, 'No se pudo generar un ID de pedido único');
       }
@@ -266,6 +270,7 @@ const obtenerTodos = async (req, res, next) => {
       fecha_desde: req.query.fecha_desde,
       fecha_hasta: req.query.fecha_hasta,
       cliente: req.query.cliente,
+      metodo_pago: req.query.metodo_pago,
       limite,
       offset
     };

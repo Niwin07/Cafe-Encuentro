@@ -11,6 +11,7 @@ import Table from '../../components/ui/Table';
 import Modal from '../../components/ui/Modal';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
+import { METODOS_PAGO, infoMetodoPago } from '../../lib/metodosPago';
 
 const SECTORES = [
   { value: 'GENERAL', label: 'Todo' },
@@ -19,6 +20,20 @@ const SECTORES = [
 ];
 
 const esCancelado = (estado) => !!estado && estado.toUpperCase() === 'CANCELADO';
+
+const FILTROS_PAGO = [{ value: 'TODOS', label: 'Todos los pagos' }, ...METODOS_PAGO];
+
+function BadgeMetodoPago({ metodo }) {
+  const info = infoMetodoPago(metodo);
+  if (!info) return <Badge variant="neutral" size="sm">Sin dato</Badge>;
+  const Icono = info.icon;
+  return (
+    <Badge variant={info.badge} size="sm">
+      <Icono className="h-3 w-3" aria-hidden="true" />
+      {info.label}
+    </Badge>
+  );
+}
 
 export default function Registros() {
   const [, setLocation] = useLocation();
@@ -32,9 +47,9 @@ export default function Registros() {
   const [fechaHasta, setFechaHasta] = useState(hoy);
   const [filtroSector, setFiltroSector] = useState('GENERAL');
 
-  const [datosMostrados, setDatosMostrados] = useState([]);
+  const [datosCargados, setDatosCargados] = useState([]);
+  const [filtroPago, setFiltroPago] = useState('TODOS');
   const [loading, setLoading] = useState(false);
-  const [totales, setTotales] = useState({ total: 0, cantidad: 0 });
 
   const [pedidoSeleccionado, setPedidoSeleccionado] = useState(null);
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
@@ -50,29 +65,32 @@ export default function Registros() {
     [filtroSector]
   );
 
-  const calcularTotales = useCallback(
-    (lista, sector) => {
-      const pedidosValidos = lista.filter((p) => {
-        if (!p.estado_general) return true;
-        const estado = p.estado_general.toUpperCase().trim();
-        return estado !== 'CANCELADO' && estado !== 'ANULADO';
-      });
-
-      let totalDinero = 0;
-      if (sector === 'GENERAL') {
-        totalDinero = pedidosValidos.reduce((acc, p) => acc + (parseFloat(p.total) || 0), 0);
-      } else {
-        pedidosValidos.forEach((p) => {
-          if (p.items && Array.isArray(p.items)) {
-            totalDinero += p.items.reduce((sum, item) => sum + (parseFloat(item.subtotal) || 0), 0);
-          }
-        });
-      }
-
-      setTotales({ total: totalDinero, cantidad: pedidosValidos.length });
-    },
-    []
+  // Filtro por método de pago (en el cliente: los datos del rango ya están cargados)
+  const datosMostrados = useMemo(
+    () => (filtroPago === 'TODOS' ? datosCargados : datosCargados.filter((p) => p.metodo_pago === filtroPago)),
+    [datosCargados, filtroPago]
   );
+
+  // Totales del listado visible y lo cobrado por cada método (sin cancelados)
+  const totales = useMemo(() => {
+    const importe = (p) => parseFloat(obtenerTotalFila(p)) || 0;
+    const validos = datosMostrados.filter((p) => {
+      const estado = (p.estado_general || '').toUpperCase().trim();
+      return estado !== 'CANCELADO' && estado !== 'ANULADO';
+    });
+    const porMetodo = {};
+    validos.forEach((p) => {
+      const clave = p.metodo_pago || 'SIN_DATO';
+      porMetodo[clave] = (porMetodo[clave] || 0) + importe(p);
+    });
+    return {
+      total: validos.reduce((acc, p) => acc + importe(p), 0),
+      cantidad: validos.length,
+      porMetodo,
+    };
+  }, [datosMostrados, obtenerTotalFila]);
+
+  const formatoPesos = (n) => new Intl.NumberFormat('es-AR').format(n);
 
   const cargarHistorial = useCallback(async () => {
     setLoading(true);
@@ -86,15 +104,14 @@ export default function Registros() {
       const { data } = await api.get(url);
       const resultado = filtroSector === 'GENERAL' ? data.pedidos || [] : data.registros || [];
 
-      setDatosMostrados(resultado);
-      calcularTotales(resultado, filtroSector);
+      setDatosCargados(resultado);
     } catch (err) {
       console.error(err);
       toast.error('No se pudo cargar el historial.');
     } finally {
       setLoading(false);
     }
-  }, [fechaDesde, fechaHasta, filtroSector, toast, calcularTotales]);
+  }, [fechaDesde, fechaHasta, filtroSector, toast]);
 
   useEffect(() => {
     cargarHistorial();
@@ -159,6 +176,7 @@ export default function Registros() {
         render: (p) => <span className="font-bold text-coffee-900">{p.cliente}</span>,
       },
       { key: 'cajera', header: 'Cajera', render: (p) => <Badge variant="neutral" size="sm">{p.cajera_nombre}</Badge> },
+      { key: 'pago', header: 'Pago', render: (p) => <BadgeMetodoPago metodo={p.metodo_pago} /> },
       {
         key: 'estado',
         header: 'Estado',
@@ -206,6 +224,10 @@ export default function Registros() {
             <Input type="date" label="Desde" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)} wrapperClassName="w-auto" />
             <Input type="date" label="Hasta" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)} wrapperClassName="w-auto" />
           </div>
+
+          <div className="mt-4">
+            <Tabs items={FILTROS_PAGO} value={filtroPago} onChange={setFiltroPago} />
+          </div>
         </div>
       </header>
 
@@ -221,9 +243,32 @@ export default function Registros() {
             <p className="text-xs font-semibold uppercase tracking-wide text-coffee-400">
               {filtroSector === 'GENERAL' ? 'Facturación total' : `Ventas ${filtroSector.toLowerCase()}`}
             </p>
-            <p className="mt-1 text-2xl font-bold text-coffee-900">${new Intl.NumberFormat('es-AR').format(totales.total)}</p>
+            <p className="mt-1 text-2xl font-bold text-coffee-900">${formatoPesos(totales.total)}</p>
           </div>
         </div>
+
+        {/* Cobrado por método de pago (útil para el cierre de caja) */}
+        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {METODOS_PAGO.map(({ value, label, icon }) => {
+            const Icono = icon;
+            return (
+            <div key={value} className="flex items-center gap-3 rounded-2xl border border-cream-300 bg-white p-3 shadow-card">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cream-200 text-coffee-600">
+                <Icono className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-coffee-400">{label}</p>
+                <p className="text-lg font-bold text-coffee-900">${formatoPesos(totales.porMetodo[value] || 0)}</p>
+              </div>
+            </div>
+            );
+          })}
+        </div>
+        {totales.porMetodo.SIN_DATO > 0 && (
+          <p className="-mt-3 mb-5 text-xs text-coffee-400">
+            ${formatoPesos(totales.porMetodo.SIN_DATO)} corresponden a pedidos anteriores sin método de pago registrado.
+          </p>
+        )}
 
         {loading ? (
           <div className="flex flex-col items-center gap-3 py-16">
@@ -265,6 +310,10 @@ export default function Registros() {
             <div className="rounded-xl bg-cream-100 p-3 text-sm">
               <p>
                 <span className="font-semibold text-coffee-700">Cliente:</span> {pedidoSeleccionado.cliente}
+              </p>
+              <p className="mt-1 flex items-center gap-2">
+                <span className="font-semibold text-coffee-700">Pago:</span>
+                <BadgeMetodoPago metodo={pedidoSeleccionado.metodo_pago} />
               </p>
               {pedidoSeleccionado.notas && (
                 <p className="mt-1 flex items-start gap-1 italic text-coffee-500">

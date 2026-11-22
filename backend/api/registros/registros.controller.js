@@ -20,6 +20,7 @@ const agruparRegistrosPorPedido = (registros) => {
         estado_general: item.estado_general,
         total_pedido: item.total_pedido,
         notas_pedido: item.notas_pedido,
+        metodo_pago: item.metodo_pago,
         items: []
       });
     }

@@ -25,6 +25,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import { SkeletonGrid } from '../../components/ui/Skeleton';
 import { fieldControlClasses } from '../../components/ui/Input';
 import { cn } from '../../lib/cn';
+import { METODOS_PAGO } from '../../lib/metodosPago';
 
 export default function MenuCajera() {
   const { user, logout } = useAuth();
@@ -35,6 +36,7 @@ export default function MenuCajera() {
   const [categorias, setCategorias] = useState([]);
   const [carrito, setCarrito] = useState([]);
   const [cliente, setCliente] = useState('');
+  const [metodoPago, setMetodoPago] = useState('');
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('Todas');
   const [busqueda, setBusqueda] = useState('');
   const [procesando, setProcesando] = useState(false);
@@ -120,6 +122,10 @@ export default function MenuCajera() {
       toast.warning('El carrito está vacío.');
       return;
     }
+    if (!metodoPago) {
+      toast.warning('Elegí cómo paga el cliente: efectivo, transferencia o tarjeta.');
+      return;
+    }
 
     const itemsSinAcompRequerido = carrito
       .filter((item) => {
@@ -137,6 +143,7 @@ export default function MenuCajera() {
     try {
       const payload = {
         cliente,
+        metodo_pago: metodoPago,
         items: carrito.map((item) => ({
           producto_id: item.id,
           cantidad: item.cantidad,
@@ -148,6 +155,7 @@ export default function MenuCajera() {
       toast.success('Pedido confirmado.');
       setCarrito([]);
       setCliente('');
+      setMetodoPago('');
       cargarDatos();
       if (window.innerWidth < 1024) setTabActiva('pedidos');
     } catch (err) {
@@ -155,7 +163,7 @@ export default function MenuCajera() {
     } finally {
       setProcesando(false);
     }
-  }, [cliente, carrito, productos, toast, cargarDatos]);
+  }, [cliente, metodoPago, carrito, productos, toast, cargarDatos]);
 
   const total = useMemo(
     () => carrito.reduce((sum, item) => sum + item.precio * item.cantidad, 0),
@@ -324,6 +332,13 @@ export default function MenuCajera() {
           </div>
 
           <div className="shrink-0 border-t border-cream-200 p-4">
+            <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-coffee-500">Método de pago</p>
+            <Tabs
+              items={METODOS_PAGO}
+              value={metodoPago}
+              onChange={setMetodoPago}
+              className="mb-3 [&>button]:flex-1 [&>button]:justify-center [&>button]:px-2"
+            />
             <div className="mb-3 flex items-center justify-between">
               <span className="text-sm font-semibold text-coffee-600">Total</span>
               <span className="text-2xl font-bold text-coffee-900">${total.toFixed(2)}</span>
