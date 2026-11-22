@@ -2,7 +2,9 @@ const pool = require('../../conexion');
 const { normalizarFecha } = require('../utils/helpers');
 
 /**
- * Obtener registros de pedidos por destino con filtros
+ * Obtener registros (una fila por item) con filtros.
+ * destinoId = null → todos los destinos.
+ * filtros.categoria_id → solo los items de productos de esa categoría.
  */
 const obtenerPorDestino = async (destinoId, filtros = {}) => {
   let query = `
@@ -20,6 +22,8 @@ const obtenerPorDestino = async (destinoId, filtros = {}) => {
       pi.id as item_id,
       pi.producto_id,
       prod.nombre as producto_nombre,
+      prod.categoria_id,
+      cat.nombre as categoria_nombre,
       pi.cantidad,
       pi.precio_unitario,
       pi.subtotal,
@@ -35,13 +39,24 @@ const obtenerPorDestino = async (destinoId, filtros = {}) => {
     INNER JOIN pedidos p ON pi.pedido_id = p.id
     INNER JOIN cajeras c ON p.cajera_id = c.id
     INNER JOIN productos prod ON pi.producto_id = prod.id
+    LEFT JOIN categorias cat ON prod.categoria_id = cat.id
     INNER JOIN destinos d ON pi.destino_id = d.id
     LEFT JOIN acompanamientos acomp ON pi.acompanamiento_id = acomp.id
     
-    WHERE pi.destino_id = ?
+    WHERE TRUE
   `;
 
-  const valores = [destinoId];
+  const valores = [];
+
+  if (destinoId) {
+    query += ' AND pi.destino_id = ?';
+    valores.push(destinoId);
+  }
+
+  if (filtros.categoria_id) {
+    query += ' AND prod.categoria_id = ?';
+    valores.push(filtros.categoria_id);
+  }
 
   // Filtros opcionales
   const desde = normalizarFecha(filtros.fecha_desde);

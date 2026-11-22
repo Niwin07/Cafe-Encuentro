@@ -29,6 +29,8 @@ const agruparRegistrosPorPedido = (registros) => {
       id: item.item_id,
       producto_id: item.producto_id,
       producto_nombre: item.producto_nombre,
+      categoria_id: item.categoria_id,
+      categoria_nombre: item.categoria_nombre,
       cantidad: item.cantidad,
       precio_unitario: item.precio_unitario,
       subtotal: item.subtotal,
@@ -42,14 +44,18 @@ const agruparRegistrosPorPedido = (registros) => {
 };
 
 const responderRegistrosDestino = async (req, res, nombreDestino, etiqueta) => {
+  // categoria_id: entero positivo o se ignora
+  const categoriaId = Number(req.query.categoria_id);
   const filtros = {
     fecha_desde: req.query.fecha_desde,
     fecha_hasta: req.query.fecha_hasta,
     cajera_id: req.query.cajera_id,
-    estado: req.query.estado
+    estado: req.query.estado,
+    categoria_id: Number.isInteger(categoriaId) && categoriaId > 0 ? categoriaId : undefined
   };
 
-  const destinoId = await obtenerIdDestinoPorNombre(nombreDestino);
+  // nombreDestino null → todos los destinos
+  const destinoId = nombreDestino ? await obtenerIdDestinoPorNombre(nombreDestino) : null;
   const registros = await registrosModel.obtenerPorDestino(destinoId, filtros);
   const pedidosArray = agruparRegistrosPorPedido(registros);
 
@@ -67,6 +73,18 @@ const responderRegistrosDestino = async (req, res, nombreDestino, etiqueta) => {
 const obtenerRegistrosCocina = async (req, res, next) => {
   try {
     await responderRegistrosDestino(req, res, 'Cocina', 'Cocina');
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Obtener registros de todos los destinos (con items; admite ?categoria_id=)
+ * GET /api/registros/todos
+ */
+const obtenerRegistrosTodos = async (req, res, next) => {
+  try {
+    await responderRegistrosDestino(req, res, null, 'Todos');
   } catch (error) {
     next(error);
   }
@@ -143,6 +161,7 @@ const obtenerCierreCaja = async (req, res, next) => {
 };
 
 module.exports = {
+  obtenerRegistrosTodos,
   obtenerRegistrosCocina,
   obtenerRegistrosCafeteria,
   obtenerResumen,
