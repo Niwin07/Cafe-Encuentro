@@ -57,7 +57,7 @@ Aiven powers off idle free-tier services. `GET /api/keepalive` (`backend/api/kee
 `backend/api/productos/imagenIA.service.js`:
 1. Translates the product name/description Spanish → English via MyMemory API.
 2. Appends a fixed photography style prompt.
-3. Calls Hugging Face Inference API (`stabilityai/stable-diffusion-3-medium-diffusers`) — requires `HF_TOKEN`.
+3. Generates the image: Hugging Face Inference API (`stabilityai/stable-diffusion-3-medium-diffusers`, needs `HF_TOKEN` and paid credits once the free monthly quota runs out) and, if that fails or there is no token, **Pollinations** (`gen.pollinations.ai/image/{prompt}`, free; `POLLINATIONS_KEY` from enter.pollinations.ai, optional `POLLINATIONS_MODEL`; without a key it tries anonymous access and the legacy `image.pollinations.ai`). After an HF 402 the instance skips HF. Failures return a 503 with a readable `mensaje`.
 4. Uploads the resulting JPEG buffer to Cloudinary (`cafe-encuentro/productos/producto_<id>`) with `overwrite: true, invalidate: true` — requires `CLOUDINARY_URL`. The `invalidate` flag is essential: without it the CDN serves the old image after a regeneration.
 
 ### Frontend structure
@@ -99,6 +99,7 @@ Custom palette defined in `frontend/tailwind.config.js`:
 All required vars are in `backend/.env.example`. The three external services are:
 - **PostgreSQL (Aiven)** — `DATABASE_URL` (Service URI) or `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`; optional `DB_CA_CERT`, `DB_TIMEZONE`, `ADMIN_PASSWORD` (only used when the DB has no cashiers)
 - **Cloudinary** — `CLOUDINARY_URL` (combined) or the three split vars
-- **Hugging Face** — `HF_TOKEN` (free "Read" token from huggingface.co)
+- **Hugging Face** — `HF_TOKEN` (free "Read" token from huggingface.co; image generation needs credits)
+- **Pollinations** — `POLLINATIONS_KEY` (free key from enter.pollinations.ai), fallback image generator
 
 JWT expires in 2 days (`JWT_EXPIRACION = '2d'` in constants).
