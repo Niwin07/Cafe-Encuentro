@@ -53,7 +53,10 @@ Key cross-cutting pieces:
 ### Database keep-alive
 Aiven powers off idle free-tier services. `GET /api/keepalive` (`backend/api/keepalive/`) upserts a row in the `keepalive` table. It is called daily by a Vercel Cron Job (`crons` in `frontend/vercel.json`) and every 6h by `.github/workflows/keepalive.yml` (needs repo variable `KEEPALIVE_URL`). If `CRON_SECRET` is set, the endpoint requires `Authorization: Bearer <CRON_SECRET>`.
 
-### AI image generation pipeline
+### Product images
+Admins can **upload their own photo** (`POST /api/productos/:id/imagen`, body `{ imagen: dataURI }`) or generate one with AI. The frontend shrinks the photo in the browser (`frontend/src/lib/imagen.js`, longest side 1280 px, JPEG) because Vercel caps requests at 4.5 MB; `backend/index.js` allows a 4 MB JSON body only on that route (100 KB elsewhere). The backend checks the real format by magic bytes (JPEG/PNG/WebP, max 3 MB) and uploads to the same Cloudinary `public_id` as AI images.
+
+#### AI image generation pipeline
 `backend/api/productos/imagenIA.service.js`:
 1. Translates the product name/description Spanish → English via MyMemory API.
 2. Appends a fixed photography style prompt.

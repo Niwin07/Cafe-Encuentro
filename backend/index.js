@@ -11,7 +11,14 @@ const PORT = process.env.PORT || 5000;
 
 // Middlewares globales
 app.use(cors());
-app.use(express.json());
+// La subida de fotos de productos (POST /api/productos/:id/imagen) manda la
+// imagen en base64: necesita un límite mayor (Vercel acepta hasta 4,5 MB por
+// request). El resto de la API conserva el límite por defecto de 100 KB.
+const jsonFotos = express.json({ limit: '4mb' });
+const jsonGeneral = express.json();
+app.use((req, res, next) =>
+  (/^\/api\/productos\/[^/]+\/imagen$/.test(req.path) ? jsonFotos : jsonGeneral)(req, res, next)
+);
 app.use(express.urlencoded({ extended: true }));
 app.use(sanitizar); // ⭐ Sanitizar todos los datos de entrada
 

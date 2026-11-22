@@ -1,5 +1,5 @@
 const productosModel = require('./productos.model');
-const { generarYGuardarImagen } = require('./imagenIA.service');
+const { generarYGuardarImagen, guardarImagenSubida } = require('./imagenIA.service');
 const { MENSAJES_ERROR, MENSAJES_EXITO } = require('../utils/constants');
 
 /**
@@ -247,6 +247,35 @@ const generarImagen = async (req, res, next) => {
 };
 
 /**
+ * Subir una foto propia para el producto (protegido)
+ * POST /api/productos/:id/imagen   body: { imagen: "data:image/jpeg;base64,..." }
+ */
+const subirImagen = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const existe = await productosModel.existe(id);
+    if (!existe) {
+      return res.status(404).json({
+        error: 'Producto no encontrado',
+        mensaje: MENSAJES_ERROR.PRODUCTO_NO_ENCONTRADO
+      });
+    }
+
+    const imagenUrl = await guardarImagenSubida({ productoId: id, imagen: req.body?.imagen });
+    await productosModel.actualizarImagen(id, imagenUrl);
+
+    res.json({
+      mensaje: 'Foto guardada correctamente',
+      imagen_url: imagenUrl
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Actualizar stock de un producto (protegido)
  * PATCH /api/productos/:id/stock
  */
@@ -357,6 +386,7 @@ module.exports = {
   crear,
   actualizar,
   generarImagen,
+  subirImagen,
   actualizarStock,
   eliminar,
   obtenerStockBajo
