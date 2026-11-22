@@ -15,6 +15,7 @@ const obtenerPorDestino = async (destinoId, filtros = {}) => {
       p.estado_general,
       p.total as total_pedido,
       p.notas as notas_pedido,
+      p.metodo_pago,
       
       pi.id as item_id,
       pi.producto_id,
@@ -125,6 +126,12 @@ const obtenerResumenGeneral = async (filtros = {}) => {
       COUNT(CASE WHEN p.estado_general = 'Cancelado' THEN 1 END) as cancelados,
       COUNT(CASE WHEN p.estado_general = 'Pendiente' THEN 1 END) as pendientes,
       COUNT(CASE WHEN p.estado_general = 'En Proceso' THEN 1 END) as en_proceso,
+
+      -- Cobrado por método de pago (sin pedidos cancelados)
+      COALESCE(SUM(CASE WHEN p.metodo_pago = 'Efectivo'      AND p.estado_general <> 'Cancelado' THEN p.total END), 0) as total_efectivo,
+      COALESCE(SUM(CASE WHEN p.metodo_pago = 'Transferencia' AND p.estado_general <> 'Cancelado' THEN p.total END), 0) as total_transferencia,
+      COALESCE(SUM(CASE WHEN p.metodo_pago = 'Tarjeta'       AND p.estado_general <> 'Cancelado' THEN p.total END), 0) as total_tarjeta,
+      COALESCE(SUM(CASE WHEN p.metodo_pago IS NULL           AND p.estado_general <> 'Cancelado' THEN p.total END), 0) as total_sin_metodo,
       
       COUNT(DISTINCT p.cajera_id) as cajeras_activas
       
@@ -167,6 +174,7 @@ const obtenerParaCierreCaja = async (fecha_desde, fecha_hasta) => {
       p.fecha_hora,
       p.estado_general,
       p.total,
+      p.metodo_pago,
       
       STRING_AGG(DISTINCT d.nombre, ', ' ORDER BY d.nombre) as destino_nombre,
       
@@ -179,7 +187,7 @@ const obtenerParaCierreCaja = async (fecha_desde, fecha_hasta) => {
     
     WHERE p.fecha_hora >= ? AND p.fecha_hora <= ?
     
-    GROUP BY p.id, p.cliente, p.cajera_id, c.nombre, p.fecha_hora, p.estado_general, p.total
+    GROUP BY p.id, p.cliente, p.cajera_id, c.nombre, p.fecha_hora, p.estado_general, p.total, p.metodo_pago
     ORDER BY p.fecha_hora DESC
   `;
 

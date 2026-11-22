@@ -22,6 +22,7 @@ const obtenerPorId = async (pedidoId) => {
       p.estado_general,
       p.total,
       p.notas,
+      p.metodo_pago,
       p.created_at,
       p.updated_at
     FROM pedidos p
@@ -99,6 +100,11 @@ const construirFiltros = (filtros = {}) => {
     valores.push(hasta);
   }
 
+  if (filtros.metodo_pago) {
+    condiciones.push('p.metodo_pago = ?');
+    valores.push(filtros.metodo_pago);
+  }
+
   if (filtros.cliente) {
     condiciones.push('p.cliente ILIKE ?');
     valores.push(`%${filtros.cliente}%`);
@@ -126,6 +132,7 @@ const obtenerTodos = async (filtros = {}) => {
       p.estado_general,
       p.total,
       p.notas,
+      p.metodo_pago,
       p.created_at
     FROM pedidos p
     INNER JOIN cajeras c ON p.cajera_id = c.id
